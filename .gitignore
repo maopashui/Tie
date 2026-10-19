@@ -1,0 +1,36 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Node / Vite
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Tauri generated schemas
+apps/desktop/src-tauri/gen/
+
+# Local data and secrets
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+
+# Local design drafts
+design/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
