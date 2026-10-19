@@ -2,6 +2,24 @@
 
 跨平台 SSH / SFTP 桌面客户端。界面是 Tauri 2 + React，协议栈使用 `russh` + `russh-sftp`，终端由 xterm.js 渲染。
 
+## 界面
+
+会话列表与快速连接：
+
+<img src="docs/screenshots/home.png" alt="会话列表" width="720">
+
+SSH 终端：
+
+<img src="docs/screenshots/ssh.png" alt="SSH 终端" width="720">
+
+SFTP 双栏传输：
+
+<img src="docs/screenshots/sftp.png" alt="SFTP 双栏" width="720">
+
+常用命令：
+
+<img src="docs/screenshots/command.png" alt="常用命令" width="720">
+
 ## 范围
 
 - SSH 交互终端（密码 / 私钥、应用目录中的 `known_hosts`、主机密钥确认）
