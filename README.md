@@ -1,38 +1,40 @@
 # Tie
 
-跨平台 SSH / SFTP 桌面客户端。界面是 Tauri 2 + React，协议栈使用 `russh` + `russh-sftp`，终端由 xterm.js 渲染。
+[中文](docs/README.zh.md)
 
-## 界面
+Cross-platform SSH / SFTP desktop client. The UI is Tauri 2 + React, the protocol stack is `russh` + `russh-sftp`, and the terminal is rendered with xterm.js.
 
-会话列表与快速连接：
+## Screenshots
 
-<img src="docs/screenshots/home.png" alt="会话列表" width="720">
+Session list and quick connect:
 
-SSH 终端：
+<img src="docs/screenshots/home.png" alt="Session list" width="720">
 
-<img src="docs/screenshots/ssh.png" alt="SSH 终端" width="720">
+SSH terminal:
 
-SFTP 双栏传输：
+<img src="docs/screenshots/ssh.png" alt="SSH terminal" width="720">
 
-<img src="docs/screenshots/sftp.png" alt="SFTP 双栏" width="720">
+Two-pane SFTP:
 
-常用命令：
+<img src="docs/screenshots/sftp.png" alt="SFTP" width="720">
 
-<img src="docs/screenshots/command.png" alt="常用命令" width="720">
+Command reference:
 
-## 范围
+<img src="docs/screenshots/command.png" alt="Commands" width="720">
 
-- SSH 交互终端（密码 / 私钥、应用目录中的 `known_hosts`、主机密钥确认）
-- SFTP 双栏浏览与单文件上传下载（可取消，完成后写入 SQLite）
-- 会话与分组（SQLite + 系统钥匙串）
-- 本地 Shell 仍由 `tie-pty` 保留，尚未接到桌面界面
+## Scope
 
-## 要求
+- Interactive SSH terminal (password / private key, app-local `known_hosts`, host-key confirmation)
+- Two-pane SFTP browse, plus single-file upload and download (cancellable; recorded in SQLite when finished)
+- Sessions and groups (SQLite + the system keychain)
+- Local shell still lives in `tie-pty` and is not wired into the desktop UI yet
+
+## Requirements
 
 - Rust stable
 - Node.js 22+
 
-## 开发
+## Development
 
 ```bash
 cd apps/desktop
@@ -40,16 +42,16 @@ npm install
 npm run tauri dev
 ```
 
-检查：
+Checks:
 
 ```bash
 cargo test -p tie-store -p tie-ssh -p tie-desktop
 cd apps/desktop && npm run check && npm run build
 ```
 
-## 打包
+## Packaging
 
-在对应系统上执行。产物是可双击启动的图形程序，不要用终端去运行里面的可执行文件。
+Run this on the target operating system. The output is a graphical app you launch by double-clicking. Do not start the bundled executable from a terminal.
 
 ```bash
 cd apps/desktop
@@ -57,33 +59,33 @@ npm install
 npm run tauri build
 ```
 
-Windows 正式版使用 GUI 子系统，双击不会弹出黑色控制台。`npm run tauri dev` 仍会附带终端，那只用于开发。
+Release builds on Windows use the GUI subsystem, so double-clicking does not open a console. `npm run tauri dev` still attaches a terminal; that is only for development.
 
 ### macOS
 
-需要已安装 Xcode 命令行工具。
+Xcode command-line tools must be installed.
 
-产物：
+Artifacts:
 
 - `src-tauri/target/release/bundle/dmg/Tie_0.1.0_<arch>.dmg`
 - `src-tauri/target/release/bundle/macos/Tie.app`
 
-打开 dmg，把 `Tie.app` 拖进「应用程序」，再从启动台或应用程序文件夹打开。
+Open the dmg, drag `Tie.app` into Applications, then launch it from Launchpad or the Applications folder.
 
 ### Windows
 
-需要 Visual Studio 的「使用 C++ 的桌面开发」工作负载，以及 WebView2 运行库（Windows 11 通常已自带）。
+Install the Visual Studio "Desktop development with C++" workload, and the WebView2 runtime (usually already present on Windows 11).
 
-产物：
+Artifacts:
 
 - `src-tauri/target/release/bundle/nsis/Tie_0.1.0_x64-setup.exe`
-- `src-tauri/target/release/bundle/msi/` 下的 `.msi` 安装包
+- an `.msi` under `src-tauri/target/release/bundle/msi/`
 
-运行安装包完成安装，然后从开始菜单打开 Tie。
+Run the installer, then open Tie from the Start menu.
 
 ### Linux
 
-Debian / Ubuntu 先安装界面依赖：
+On Debian / Ubuntu, install the UI dependencies first:
 
 ```bash
 sudo apt update
@@ -91,18 +93,18 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
   libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 ```
 
-产物位于 `src-tauri/target/release/bundle/`：
+Artifacts are under `src-tauri/target/release/bundle/`:
 
-- `deb/tie_0.1.0_<arch>.deb`：`sudo apt install ./tie_0.1.0_<arch>.deb`，然后从应用菜单打开 Tie
-- `rpm/`：用系统的 rpm 安装器安装后，从应用菜单打开
-- `appimage/tie_0.1.0_<arch>.AppImage`：加上执行权限后双击，或在文件管理器中打开
+- `deb/tie_0.1.0_<arch>.deb`: `sudo apt install ./tie_0.1.0_<arch>.deb`, then open Tie from the application menu
+- `rpm/`: install with the system rpm installer, then open it from the application menu
+- `appimage/tie_0.1.0_<arch>.AppImage`: mark it executable and double-click, or open it from the file manager
 
-安装包注册的是图形桌面项，不会打开终端窗口。
+The packages register a graphical desktop entry and do not open a terminal window.
 
-## 数据位置
+## Data locations
 
 - macOS: `~/Library/Application Support/Tie/sessions.db`
-- 主机密钥: 同目录 `known_hosts`，不会改写 `~/.ssh/known_hosts`
+- Host keys: `known_hosts` in the same directory. `~/.ssh/known_hosts` is left unchanged
 - Windows: `%APPDATA%\Tie\`
 
-密码和私钥口令只进操作系统凭据存储。
+Passwords and private-key passphrases are stored only in the operating system credential store.
