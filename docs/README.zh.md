@@ -67,7 +67,7 @@ Windows 正式版使用 GUI 子系统，双击不会弹出黑色控制台。`npm
 
 产物：
 
-- `src-tauri/target/release/bundle/dmg/Tie_0.1.0_<arch>.dmg`
+- `src-tauri/target/release/bundle/dmg/Tie_0.1.1_<arch>.dmg`
 - `src-tauri/target/release/bundle/macos/Tie.app`
 
 打开 dmg，把 `Tie.app` 拖进「应用程序」，再从启动台或应用程序文件夹打开。
@@ -78,7 +78,7 @@ Windows 正式版使用 GUI 子系统，双击不会弹出黑色控制台。`npm
 
 产物：
 
-- `src-tauri/target/release/bundle/nsis/Tie_0.1.0_x64-setup.exe`
+- `src-tauri/target/release/bundle/nsis/Tie_0.1.1_x64-setup.exe`
 - `src-tauri/target/release/bundle/msi/` 下的 `.msi` 安装包
 
 运行安装包完成安装，然后从开始菜单打开 Tie。
@@ -95,9 +95,9 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
 
 产物位于 `src-tauri/target/release/bundle/`：
 
-- `deb/tie_0.1.0_<arch>.deb`：`sudo apt install ./tie_0.1.0_<arch>.deb`，然后从应用菜单打开 Tie
+- `deb/tie_0.1.1_<arch>.deb`：`sudo apt install ./tie_0.1.1_<arch>.deb`，然后从应用菜单打开 Tie
 - `rpm/`：用系统的 rpm 安装器安装后，从应用菜单打开
-- `appimage/tie_0.1.0_<arch>.AppImage`：加上执行权限后双击，或在文件管理器中打开
+- `appimage/tie_0.1.1_<arch>.AppImage`：加上执行权限后双击，或在文件管理器中打开
 
 安装包注册的是图形桌面项，不会打开终端窗口。
 

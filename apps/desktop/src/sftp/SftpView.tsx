@@ -185,7 +185,7 @@ export function SftpView({ connectionId }: { connectionId: string }) {
   const failed = history.filter((item) => item.status === "failed" || item.status === "cancelled");
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-tie-card">
       <div className="flex min-h-0 flex-1">
         <FileColumn
           label={t("local")}
@@ -223,11 +223,11 @@ export function SftpView({ connectionId }: { connectionId: string }) {
               : undefined
           }
         />
-        <div className="flex w-10 flex-col items-center justify-center gap-2 border-r border-slate-200 bg-slate-50">
-          <button className="rounded border border-slate-200 bg-white px-2 py-1" title={t("upload")} onClick={() => void upload().catch(showError)} type="button">
+        <div className="flex w-10 flex-col items-center justify-center gap-2 border-r border-tie-border bg-tie-surface">
+          <button className="rounded border border-tie-border bg-tie-card px-2 py-1" title={t("upload")} onClick={() => void upload().catch(showError)} type="button">
             →
           </button>
-          <button className="rounded border border-slate-200 bg-white px-2 py-1" title={t("download")} onClick={() => void download().catch(showError)} type="button">
+          <button className="rounded border border-tie-border bg-tie-card px-2 py-1" title={t("download")} onClick={() => void download().catch(showError)} type="button">
             ←
           </button>
         </div>
@@ -269,26 +269,26 @@ export function SftpView({ connectionId }: { connectionId: string }) {
           remote
         />
       </div>
-      <footer className="flex h-44 flex-col border-t border-slate-200">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-2 py-1">
+      <footer className="flex h-44 flex-col border-t border-tie-border">
+        <div className="flex items-center justify-between border-b border-tie-border bg-tie-surface px-2 py-1">
           <div className="flex gap-1">
             <QueueTab active={tab === "running"} label={t("transferring", { count: running.length })} onClick={() => setTab("running")} />
             <QueueTab active={tab === "done"} label={t("completedCount", { count: done.length })} onClick={() => setTab("done")} />
             <QueueTab active={tab === "failed"} label={t("failedCancelled", { count: failed.length })} onClick={() => setTab("failed")} />
           </div>
           <div className="flex gap-1">
-            <button className="rounded border border-slate-200 px-2 py-0.5" disabled title={t("rateLimitHint")} type="button">
+            <button className="rounded border border-tie-border px-2 py-0.5" disabled title={t("rateLimitHint")} type="button">
               {t("rateLimit")}
             </button>
-            <button className="rounded border border-slate-200 px-2 py-0.5" disabled title={t("pauseHint")} type="button">
+            <button className="rounded border border-tie-border px-2 py-0.5" disabled title={t("pauseHint")} type="button">
               {t("pauseAll")}
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-auto bg-white p-2">
+        <div className="flex-1 overflow-auto bg-tie-card p-2">
           {tab === "running"
             ? running.map((item) => (
-                <div key={item.id} className="mb-2 rounded border border-slate-200 p-2">
+                <div key={item.id} className="mb-2 rounded border border-tie-border p-2">
                   <div className="flex items-center justify-between">
                     <span>
                       <b className="mr-2">{item.direction === "upload" ? t("upload") : t("download")}</b>
@@ -301,7 +301,7 @@ export function SftpView({ connectionId }: { connectionId: string }) {
                       </button>
                     </span>
                   </div>
-                  <div className="mt-1 h-1.5 rounded bg-slate-100">
+                  <div className="mt-1 h-1.5 rounded bg-tie-subtle">
                     <div
                       className="h-full rounded bg-emerald-500"
                       style={{ width: `${item.total ? Math.min(100, (item.transferred / item.total) * 100) : 0}%` }}
@@ -310,33 +310,33 @@ export function SftpView({ connectionId }: { connectionId: string }) {
                 </div>
               ))
             : (tab === "done" ? done : failed).map((item) => (
-                <div key={item.id} className="border-b border-slate-100 py-1 font-mono">
+                <div key={item.id} className="border-b border-tie-border py-1 font-mono">
                   {item.direction === "upload" ? t("upload") : t("download")} {transferRoute(item)} {transferStatus(item.status)}
                   {item.error ? ` ${item.error}` : ""}
                 </div>
               ))}
         </div>
       </footer>
-      <div className="border-t border-slate-200 px-2 py-1">
+      <div className="border-t border-tie-border px-2 py-1">
         <input
-          className="w-64 rounded border border-slate-200 px-2 py-0.5"
+          className="w-64 rounded border border-tie-border px-2 py-0.5"
           placeholder={t("filterDir")}
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
         />
       </div>
       {replacePrompt ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30">
-          <div className="w-[360px] rounded border border-slate-200 bg-white p-3 shadow-lg">
-            <div className="font-semibold text-slate-800">{replacePrompt.title}</div>
-            <p className="mt-2 break-words text-slate-700">{replacePrompt.message}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-tie-overlay">
+          <div className="w-[360px] rounded border border-tie-border bg-tie-card p-3 shadow-lg">
+            <div className="font-semibold text-tie-text">{replacePrompt.title}</div>
+            <p className="mt-2 break-words text-tie-text">{replacePrompt.message}</p>
             <div className="mt-3 flex justify-end gap-2">
-              <button className="rounded border border-slate-300 px-3 py-1" onClick={() => setReplacePrompt(null)} type="button">
+              <button className="rounded border border-tie-border px-3 py-1" onClick={() => setReplacePrompt(null)} type="button">
                 {replacePrompt.blocked ? t("gotIt") : t("cancel")}
               </button>
               {replacePrompt.blocked ? null : (
                 <button
-                  className="rounded bg-slate-900 px-3 py-1 text-white"
+                  className="rounded bg-tie-accent px-3 py-1 text-white"
                   onClick={() => {
                     const run = replacePrompt.run;
                     setReplacePrompt(null);
@@ -403,9 +403,9 @@ function FileColumn({
   const selectedCount = selectable.filter((entry) => checked.has(entry.path)).length;
   const allChecked = selectable.length > 0 && selectedCount === selectable.length;
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-slate-200" onMouseDown={onActivate}>
-      <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1">
-        <span className={`shrink-0 rounded px-1.5 py-0.5 font-bold ${remote ? "bg-emerald-100 text-emerald-700" : "bg-slate-200"}`}>
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-tie-border" onMouseDown={onActivate}>
+      <div className="flex items-center gap-1 border-b border-tie-border bg-tie-surface px-2 py-1">
+        <span className={`shrink-0 rounded px-1.5 py-0.5 font-bold ${remote ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-tie-hover"}`}>
           {label}
         </span>
         <button className="shrink-0" onClick={onUp} type="button">
@@ -423,11 +423,11 @@ function FileColumn({
         >
           {dotsHidden ? t("showHidden") : t("hideHidden")}
         </button>
-        <span className="mx-1 h-3 w-px shrink-0 bg-slate-300" aria-hidden="true" />
+        <span className="mx-1 h-3 w-px shrink-0 bg-tie-hover" aria-hidden="true" />
         <span className="min-w-0 truncate font-mono">{path}</span>
       </div>
-      <div className="flex items-center justify-between border-b border-slate-200 px-2 py-1">
-        <button className="rounded bg-slate-900 px-2 py-0.5 text-white" onClick={onAction} type="button">
+      <div className="flex items-center justify-between border-b border-tie-border px-2 py-1">
+        <button className="rounded bg-tie-accent px-2 py-0.5 text-white" onClick={onAction} type="button">
           {actionLabel}
         </button>
         <button onClick={() => void onMkdir()} type="button">
@@ -441,7 +441,7 @@ function FileColumn({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <table className="w-full text-left font-mono">
-          <thead className="sticky top-0 bg-slate-50">
+          <thead className="sticky top-0 bg-tie-surface">
             <tr>
               <th className="w-8 px-2 py-1">
                 <input
@@ -465,7 +465,7 @@ function FileColumn({
             {entries.map((entry) => (
               <tr
                 key={entry.path}
-                className={checked.has(entry.path) || selected?.path === entry.path ? "bg-slate-100" : "hover:bg-slate-50"}
+                className={checked.has(entry.path) || selected?.path === entry.path ? "bg-tie-subtle" : "hover:bg-tie-surface"}
                 onClick={() => onSelect(entry)}
                 onDoubleClick={() => onOpen(entry)}
               >
@@ -481,7 +481,7 @@ function FileColumn({
                   )}
                 </td>
                 <td className="px-2 py-0.5">
-                  {entry.is_dir ? <Folder className="mr-1 inline-block text-slate-500" size={12} /> : null}
+                  {entry.is_dir ? <Folder className="mr-1 inline-block text-tie-muted" size={12} /> : null}
                   {entry.name}
                 </td>
                 <td className="px-2 py-0.5">{entry.is_dir ? "-" : formatSize(entry.size)}</td>
@@ -493,7 +493,7 @@ function FileColumn({
           </tbody>
         </table>
       </div>
-      <div className="border-t border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+      <div className="border-t border-tie-border bg-tie-surface px-2 py-1 text-tie-muted">
         {t("itemCount", { count: entries.length })}
         {selectedCount ? t("checkedCount", { count: selectedCount }) : ""}
         {selected ? ` · ${selected.name}` : ""}
@@ -505,7 +505,7 @@ function FileColumn({
 function QueueTab({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
     <button
-      className={`rounded px-2 py-0.5 ${active ? "border border-slate-200 bg-white font-semibold" : ""}`}
+      className={`rounded px-2 py-0.5 ${active ? "border border-tie-border bg-tie-card font-semibold" : ""}`}
       onClick={onClick}
       type="button"
     >

@@ -43,19 +43,19 @@ export function SessionSidebar({
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-tie-border bg-tie-surface">
-      <div className="border-b border-tie-border bg-white p-2">
+      <div className="border-b border-tie-border bg-tie-card p-2">
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-800">{t("sessionManager")}</span>
-          <div className="flex text-slate-500">
+          <span className="text-xs font-semibold text-tie-text">{t("sessionManager")}</span>
+          <div className="flex text-tie-muted">
             <IconButton title={t("newFolder")} onClick={onCreateFolder}>
               <FolderPlus size={14} />
             </IconButton>
           </div>
         </div>
         <div className="relative">
-          <Search className="absolute left-2 top-1.5 text-slate-400" size={12} />
+          <Search className="absolute left-2 top-1.5 text-tie-muted" size={12} />
           <input
-            className="w-full rounded border border-slate-200 bg-tie-surface py-1 pl-7 pr-2 text-[11px] outline-none focus:border-slate-400"
+            className="w-full rounded border border-tie-border bg-tie-surface py-1 pl-7 pr-2 text-[11px] outline-none focus:border-tie-accent"
             placeholder={t("searchSessions")}
             value={search}
             onChange={(event) => onSearch(event.target.value)}
@@ -136,7 +136,7 @@ function FolderBlock({
   return (
     <div className="px-2 py-1">
       <div className="group/folder mb-0.5 flex items-center justify-between">
-        <span className="min-w-0 truncate font-medium text-slate-500">{folderLabel(folder, t)}</span>
+        <span className="min-w-0 truncate font-medium text-tie-muted">{folderLabel(folder, t)}</span>
         {editable && confirmFolder ? (
           <span className="flex shrink-0 items-center gap-1">
             <button
@@ -149,7 +149,7 @@ function FolderBlock({
             >
               {t("confirm")}
             </button>
-            <button className="px-1 text-slate-500" type="button" onClick={() => setConfirmFolder(false)}>
+            <button className="px-1 text-tie-muted" type="button" onClick={() => setConfirmFolder(false)}>
               {t("cancel")}
             </button>
           </span>
@@ -157,7 +157,7 @@ function FolderBlock({
         {editable && !confirmFolder ? (
           <span className="flex shrink-0 items-center gap-1 opacity-0 group-hover/folder:opacity-100">
             <button
-              className="text-slate-400 hover:text-slate-900"
+              className="text-tie-muted hover:text-tie-text"
               title={t("editFolder")}
               type="button"
               onClick={() => onEditFolder(folder)}
@@ -165,7 +165,7 @@ function FolderBlock({
               <Pencil size={12} />
             </button>
             <button
-              className="text-slate-400 hover:text-red-600"
+              className="text-tie-muted hover:text-red-600"
               title={t("deleteGroupHint")}
               type="button"
               onClick={() => setConfirmFolder(true)}
@@ -181,10 +181,10 @@ function FolderBlock({
         return (
           <div
             key={session.id}
-            className={`group flex items-center justify-between rounded px-1.5 py-1 ${locked ? "" : "hover:bg-slate-200/60"}`}
+            className={`group flex items-center justify-between rounded px-1.5 py-1 ${locked ? "" : "hover:bg-tie-hover/60"}`}
           >
             <button
-              className={`flex min-w-0 flex-1 items-center text-left ${locked ? "cursor-not-allowed text-slate-400" : "text-slate-700"}`}
+              className={`flex min-w-0 flex-1 items-center text-left ${locked ? "cursor-not-allowed text-tie-muted" : "text-tie-text"}`}
               disabled={locked}
               title={
                 locked
@@ -199,11 +199,11 @@ function FolderBlock({
               type="button"
             >
               <span
-                className={`mr-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${connected.has(session.id) ? "bg-emerald-500" : "bg-slate-400"}`}
+                className={`mr-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${connected.has(session.id) ? "bg-emerald-500" : "bg-tie-muted"}`}
               />
               <span className="truncate">{session.name}</span>
               {!local && session.host ? (
-                <span className="ml-1.5 shrink-0 font-mono text-[10px] text-slate-400">{session.host}</span>
+                <span className="ml-1.5 shrink-0 font-mono text-[10px] text-tie-muted">{session.host}</span>
               ) : null}
             </button>
             {session.kind === "ssh" && pendingId === session.id ? (
@@ -218,7 +218,7 @@ function FolderBlock({
                 >
                   {t("confirm")}
                 </button>
-                <button className="px-1 text-slate-500" type="button" onClick={() => setPendingId(null)}>
+                <button className="px-1 text-tie-muted" type="button" onClick={() => setPendingId(null)}>
                   {t("cancel")}
                 </button>
               </span>
@@ -226,7 +226,7 @@ function FolderBlock({
             {session.kind === "ssh" && pendingId !== session.id ? (
               <span className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
                 <button
-                  className="text-slate-400 hover:text-slate-900"
+                  className="text-tie-muted hover:text-tie-text"
                   title={t("editSession")}
                   type="button"
                   onClick={() => onEdit(session)}
@@ -234,7 +234,7 @@ function FolderBlock({
                   <Pencil size={12} />
                 </button>
                 <button
-                  className="text-slate-400 hover:text-red-600"
+                  className="text-tie-muted hover:text-red-600"
                   title={t("deleteSession")}
                   type="button"
                   onClick={() => setPendingId(session.id)}
@@ -258,7 +258,7 @@ function folderLabel(folder: Folder, translate: ReturnType<typeof useT>) {
 
 function IconButton({ title, onClick, children }: { title: string; onClick: () => void; children: ReactNode }) {
   return (
-    <button className="rounded p-0.5 hover:bg-slate-100 hover:text-slate-900" title={title} onClick={onClick} type="button">
+    <button className="rounded p-0.5 hover:bg-tie-subtle hover:text-tie-text" title={title} onClick={onClick} type="button">
       {children}
     </button>
   );

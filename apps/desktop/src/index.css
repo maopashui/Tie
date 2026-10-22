@@ -2,6 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --tie-bg: #ffffff;
+  --tie-surface: #f8fafc;
+  --tie-subtle: #f1f5f9;
+  --tie-card: #ffffff;
+  --tie-border: #e2e8f0;
+  --tie-accent: #0f172a;
+  --tie-blue: #0284c7;
+  --tie-emerald: #10b981;
+  --tie-amber: #d97706;
+  --tie-danger: #ef4444;
+  --tie-muted: #64748b;
+  --tie-text: #1e293b;
+  --tie-hover: #e2e8f0;
+  --tie-overlay: rgb(15 23 42 / 0.3);
+  --tie-titlebar: #f3f4f6;
+  color-scheme: light;
+}
+
+/* VS Code Dark Modern */
+.dark {
+  --tie-bg: #1f1f1f;
+  --tie-surface: #181818;
+  --tie-subtle: #181818;
+  --tie-card: #1f1f1f;
+  --tie-border: #2b2b2b;
+  --tie-accent: #0078d4;
+  --tie-blue: #0078d4;
+  --tie-emerald: #2ea043;
+  --tie-amber: #cca700;
+  --tie-danger: #f85149;
+  --tie-muted: #9d9d9d;
+  --tie-text: #cccccc;
+  --tie-hover: #2a2a2a;
+  --tie-overlay: rgb(0 0 0 / 0.55);
+  --tie-titlebar: #181818;
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -11,6 +50,8 @@ body,
 body {
   margin: 0;
   overflow: hidden;
+  background: var(--tie-bg);
+  color: var(--tie-text);
 }
 
 button:disabled {

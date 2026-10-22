@@ -1,0 +1,80 @@
+name: Release
+
+# Build Tie installers for macOS and Windows, then attach them to a GitHub Release.
+#
+# Trigger:
+#   - Push a version tag:  git tag v0.1.1 && git push origin v0.1.1
+#   - Or run manually from the Actions tab (workflow_dispatch)
+#
+# Artifacts land on a draft release so you can review before publishing.
+# Builds are unsigned by default (Gatekeeper / SmartScreen may warn).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          # Cargo workspace root owns the target directory.
+          workspaces: '. -> target'
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build and upload release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: v__VERSION__
+          releaseName: 'Tie v__VERSION__'
+          releaseBody: |
+            Download the installer for your platform:
+
+            - **macOS (Apple Silicon)**: `.dmg` with `aarch64`
+            - **macOS (Intel)**: `.dmg` with `x64`
+            - **Windows**: NSIS `.exe` or `.msi`
+
+            Open the installer / app from Finder or the Start menu (do not launch the bundled binary from a terminal).
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

@@ -1,4 +1,3 @@
-import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -11,7 +10,7 @@ import {
   SquareTerminal,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { displayMessage, needsPassword, useI18n, useT, type LocalePreference } from "./i18n";
+import { displayMessage, needsPassword, useT } from "./i18n";
 import {
   createFolder,
   deleteFolder,
@@ -29,6 +28,7 @@ import type { Folder, Session } from "./api/types";
 import { ConnectDialog, NameDialog, SecretDialog } from "./sessions/ConnectDialog";
 import { SessionSidebar } from "./sessions/SessionSidebar";
 import { CommandsView } from "./commands/CommandsView";
+import { SettingsDialog } from "./settings/SettingsDialog";
 import { SftpView } from "./sftp/SftpView";
 import { findSession, useWorkspace, type WorkspaceTab } from "./stores/workspace";
 import { hasAuthFailure, resetAuthFailure } from "./terminal/authRetry";
@@ -340,14 +340,14 @@ export function App() {
   return (
     <div className="flex h-full flex-col bg-tie-surface font-sans text-xs text-tie-text antialiased">
       <header
-        className={`flex h-8 items-center justify-between border-b border-[#e2e8f0] bg-[#f3f4f6] ${mac ? "pl-20" : "px-2"}`}
+        className={`flex h-8 items-center justify-between border-b border-tie-border bg-tie-titlebar ${mac ? "pl-20" : "px-2"}`}
         data-tauri-drag-region
       >
         <div className="flex items-center gap-2" data-tauri-drag-region>
-          <span className="rounded border border-slate-300 bg-white px-1.5 font-mono font-bold">&gt;_ T</span>
-          <span className="font-semibold text-slate-800">{t("appTitle")}</span>
+          <span className="rounded border border-tie-border bg-tie-card px-1.5 font-mono font-bold">&gt;_ T</span>
+          <span className="font-semibold text-tie-text">{t("appTitle")}</span>
         </div>
-        <div className="font-mono text-[11px] text-slate-500" data-tauri-drag-region>
+        <div className="font-mono text-[11px] text-tie-muted" data-tauri-drag-region>
           {active
             ? active.kind === "commands"
               ? t("commands")
@@ -358,10 +358,10 @@ export function App() {
         </div>
         {mac ? <div className="w-16" /> : <WindowControls />}
       </header>
-      <div className="flex items-center justify-between gap-2 border-b border-tie-border bg-white px-2 py-1">
+      <div className="flex items-center justify-between gap-2 border-b border-tie-border bg-tie-card px-2 py-1">
         <div className="flex items-center gap-1.5">
           <button
-            className="flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1 text-[11px] text-white"
+            className="flex items-center gap-1 rounded bg-tie-accent px-2.5 py-1 text-[11px] text-white"
             onClick={() => {
               setConnectKey((key) => key + 1);
               setConnectOpen(true);
@@ -371,7 +371,7 @@ export function App() {
             <Plus size={12} /> {t("newSession")}
           </button>
           <button
-            className="rounded p-1.5 text-slate-600 hover:bg-slate-100"
+            className="rounded p-1.5 text-tie-muted hover:bg-tie-subtle"
             title={t("reconnect")}
             onClick={() => {
               if (!active || active.kind === "commands") return;
@@ -384,7 +384,7 @@ export function App() {
             <RefreshCw size={12} />
           </button>
           <button
-            className="rounded p-1.5 text-slate-600 hover:bg-slate-100"
+            className="rounded p-1.5 text-tie-muted hover:bg-tie-subtle"
             title={t("disconnect")}
             onClick={() => {
               if (active && active.kind !== "commands" && active.connectionId) void disconnect(active.connectionId);
@@ -425,18 +425,18 @@ export function App() {
                 .catch((error: unknown) => setBanner(String(error)));
             }}
           >
-            <SquareTerminal className="absolute left-2 top-1.5 text-slate-400" size={12} />
+            <SquareTerminal className="absolute left-2 top-1.5 text-tie-muted" size={12} />
             <input
               autoCapitalize="off"
               autoComplete="off"
-              className="w-72 rounded border border-slate-300 bg-tie-surface py-1 pl-7 pr-[4.75rem] font-mono text-[11px] outline-none focus:border-slate-600"
+              className="w-72 rounded border border-tie-border bg-tie-surface py-1 pl-7 pr-[4.75rem] font-mono text-[11px] outline-none focus:border-tie-accent"
               placeholder="user@host:22"
               spellCheck={false}
               value={quick}
               onChange={(event) => setQuick(event.target.value)}
             />
             <button
-              className="absolute right-1 top-0.5 rounded bg-slate-200 px-2 py-0.5 text-[10px]"
+              className="absolute right-1 top-0.5 rounded bg-tie-hover px-2 py-0.5 text-[10px]"
               title={t("quickConnectHint")}
               type="submit"
             >
@@ -446,14 +446,14 @@ export function App() {
         </div>
         <div className="flex items-center gap-1">
           <button
-            className="flex items-center gap-1 rounded border border-slate-200 px-2 py-1"
+            className="flex items-center gap-1 rounded border border-tie-border px-2 py-1"
             onClick={openSftp}
             type="button"
           >
             <FolderInput size={12} /> {t("sftpTransfer")}
           </button>
           <button
-            className="rounded border border-slate-200 p-1.5"
+            className="rounded border border-tie-border p-1.5"
             title={t("commands")}
             onClick={openCommands}
             type="button"
@@ -461,7 +461,7 @@ export function App() {
             <SquareTerminal size={12} />
           </button>
           <button
-            className={`rounded border p-1.5 ${recording ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-slate-200"}`}
+            className={`rounded border p-1.5 ${recording ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "border-tie-border"}`}
             title={recording ? t("stopLog") : t("recordLog")}
             onClick={() => {
               if (recording) {
@@ -479,7 +479,7 @@ export function App() {
             <ScrollText size={12} />
           </button>
           <button
-            className="rounded border border-slate-200 p-1.5"
+            className="rounded border border-tie-border p-1.5"
             title={t("settings")}
             onClick={() => setSettingsOpen(true)}
             type="button"
@@ -511,13 +511,15 @@ export function App() {
               .catch((error: unknown) => setBanner(String(error)));
           }}
         />
-        <section className="flex min-w-0 flex-1 flex-col bg-white">
-          <nav className="flex h-8 items-end gap-1 border-b border-slate-300 bg-tie-subtle px-1">
+        <section className="flex min-w-0 flex-1 flex-col bg-tie-card">
+          <nav className="flex h-8 items-end gap-1 border-b border-tie-border bg-tie-subtle px-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 className={`mb-0 flex h-7 items-center gap-2 rounded-t border px-3 font-mono ${
-                  tab.id === activeTabId ? "border-slate-300 border-t-slate-900 bg-white" : "border-transparent text-slate-600"
+                  tab.id === activeTabId
+                    ? "border-tie-border border-t-tie-accent bg-tie-card"
+                    : "border-transparent text-tie-muted"
                 }`}
                 onClick={() => setActiveTab(tab.id)}
                 onContextMenu={(event) => {
@@ -527,10 +529,10 @@ export function App() {
                 }}
                 type="button"
               >
-                <span className={`h-1.5 w-1.5 rounded-full ${tab.status === "connected" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${tab.status === "connected" ? "bg-emerald-500" : "bg-tie-hover"}`} />
                 {tab.kind === "commands" ? t("commands") : tab.title}
                 <span
-                  className="text-slate-400"
+                  className="text-tie-muted"
                   onClick={(event) => {
                     event.stopPropagation();
                     dismissTab(tab);
@@ -543,12 +545,12 @@ export function App() {
           </nav>
           {tabMenu ? (
             <div
-              className="fixed z-50 min-w-28 rounded border border-slate-200 bg-white py-1 shadow-lg"
+              className="fixed z-50 min-w-28 rounded border border-tie-border bg-tie-card py-1 shadow-lg"
               style={{ left: tabMenu.x, top: tabMenu.y }}
               onMouseDown={(event) => event.stopPropagation()}
             >
               <button
-                className="block w-full px-3 py-1 text-left hover:bg-slate-100"
+                className="block w-full px-3 py-1 text-left hover:bg-tie-subtle"
                 onClick={() => cloneTab(tabMenu.tabId)}
                 type="button"
               >
@@ -565,11 +567,11 @@ export function App() {
             ) : null}
             {active?.kind === "commands" ? <CommandsView /> : null}
             {active && active.status !== "connected" ? (
-              <div className="p-4 font-mono text-slate-600">
+              <div className="p-4 font-mono text-tie-muted">
                 {active.title}: {displayMessage(active.message)}
               </div>
             ) : null}
-            {!active ? <div className="p-4 text-slate-500">{t("emptyHint")}</div> : null}
+            {!active ? <div className="p-4 text-tie-muted">{t("emptyHint")}</div> : null}
           </div>
         </section>
         {connectOpen ? (
@@ -671,10 +673,10 @@ export function App() {
           />
         ) : null}
       </main>
-      <footer className="flex h-6 items-center justify-between border-t border-slate-300 bg-tie-subtle px-3 font-mono text-[10px] text-slate-600">
+      <footer className="flex h-6 items-center justify-between border-t border-tie-border bg-tie-subtle px-3 font-mono text-[10px] text-tie-muted">
         <div className="flex items-center gap-3">
           <span>{t("hosts", { count: sessions.filter((session) => session.kind === "ssh").length })}</span>
-          <span className="text-emerald-700">
+          <span className="text-emerald-700 dark:text-emerald-400">
             {t("online", { count: tabs.filter((tab) => tab.kind === "terminal" && tab.status === "connected").length })}
           </span>
           <span>{statusLabel(active?.status, t)}</span>
@@ -686,16 +688,16 @@ export function App() {
         </div>
       </footer>
       {notice ? (
-        <div className="fixed bottom-8 right-3 z-50 max-w-sm break-words rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 shadow-lg">
+        <div className="fixed bottom-8 right-3 z-50 max-w-sm break-words rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 shadow-lg dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
           {notice}
         </div>
       ) : null}
       {banner ? (
         <div
-          className={`fixed right-3 z-50 flex max-w-sm items-start gap-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 shadow-lg ${notice ? "bottom-20" : "bottom-8"}`}
+          className={`fixed right-3 z-50 flex max-w-sm items-start gap-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 shadow-lg dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100 ${notice ? "bottom-20" : "bottom-8"}`}
         >
           <span className="min-w-0 flex-1 break-words">{banner}</span>
-          <button className="shrink-0 text-amber-700" onClick={() => setBanner(null)} type="button">
+          <button className="shrink-0 text-amber-700 dark:text-amber-300" onClick={() => setBanner(null)} type="button">
             {t("close")}
           </button>
         </div>
@@ -712,71 +714,14 @@ function statusLabel(status: string | undefined, translate: ReturnType<typeof us
   return translate("statusReady");
 }
 
-function SettingsDialog({ onClose }: { onClose: () => void }) {
-  const t = useT();
-  const preference = useI18n((state) => state.preference);
-  const setPreference = useI18n((state) => state.setPreference);
-  const [version, setVersion] = useState("");
-  useEffect(() => {
-    void getVersion()
-      .then(setVersion)
-      .catch(() => setVersion(""));
-  }, []);
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  const options: { id: LocalePreference; label: string }[] = [
-    { id: "system", label: t("followSystem") },
-    { id: "zh-CN", label: t("langZh") },
-    { id: "en", label: t("langEn") },
-  ];
-  return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/30" onMouseDown={onClose}>
-      <div
-        className="w-[320px] rounded border border-slate-200 bg-white p-3 text-[11px] shadow-lg"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <span className="font-semibold text-slate-800">{t("settings")}</span>
-          <button className="text-slate-500" onClick={onClose} type="button">
-            {t("close")}
-          </button>
-        </div>
-        <div className="mb-1 font-medium text-slate-700">{t("language")}</div>
-        <div className="grid gap-1">
-          {options.map((option) => (
-            <label key={option.id} className="flex items-center gap-2 rounded px-1 py-1 hover:bg-slate-50">
-              <input
-                checked={preference === option.id}
-                name="locale"
-                type="radio"
-                onChange={() => setPreference(option.id)}
-              />
-              {option.label}
-            </label>
-          ))}
-        </div>
-        <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2 text-slate-500">
-          <span>{t("version")}</span>
-          <span className="font-mono text-slate-700">{version}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function WindowControls() {
   const window = getCurrentWindow();
   return (
     <div className="flex">
-      <button className="h-8 w-9 hover:bg-slate-200" onClick={() => void window.minimize()} type="button">
+      <button className="h-8 w-9 hover:bg-tie-hover" onClick={() => void window.minimize()} type="button">
         –
       </button>
-      <button className="h-8 w-9 hover:bg-slate-200" onClick={() => void window.toggleMaximize()} type="button">
+      <button className="h-8 w-9 hover:bg-tie-hover" onClick={() => void window.toggleMaximize()} type="button">
         □
       </button>
       <button className="h-8 w-9 hover:bg-red-500 hover:text-white" onClick={() => void window.close()} type="button">

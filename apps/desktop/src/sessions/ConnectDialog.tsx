@@ -203,11 +203,11 @@ export function ConnectDialog({
         {t("saveToKeychain")}
       </label>
       <div className="flex justify-end gap-2">
-        <button className="rounded border border-slate-300 px-3 py-1" onClick={onClose} type="button">
+        <button className="rounded border border-tie-border px-3 py-1" onClick={onClose} type="button">
           {t("cancel")}
         </button>
         <button
-          className="rounded border border-slate-300 px-3 py-1 disabled:opacity-50"
+          className="rounded border border-tie-border px-3 py-1 disabled:opacity-50"
           disabled={busy}
           onClick={() => void submit(false)}
           type="button"
@@ -215,7 +215,7 @@ export function ConnectDialog({
           {t("save")}
         </button>
         <button
-          className="rounded bg-slate-900 px-3 py-1 text-white disabled:opacity-50"
+          className="rounded bg-tie-accent px-3 py-1 text-white disabled:opacity-50"
           disabled={busy}
           onClick={() => void submit(true)}
           type="button"
@@ -251,10 +251,10 @@ export function SecretDialog({
         onChange={(event) => setSecret(event.target.value)}
       />
       <div className="flex justify-end gap-2">
-        <button className="rounded border border-slate-300 px-3 py-1" onClick={onClose} type="button">
+        <button className="rounded border border-tie-border px-3 py-1" onClick={onClose} type="button">
           {t("cancel")}
         </button>
-        <button className="rounded bg-slate-900 px-3 py-1 text-white" type="submit">
+        <button className="rounded bg-tie-accent px-3 py-1 text-white" type="submit">
           {t("connect")}
         </button>
       </div>
@@ -286,7 +286,7 @@ export function NameDialog({
         onChange={(event) => setName(event.target.value)}
       />
       <div className="flex justify-end">
-        <button className="rounded bg-slate-900 px-3 py-1 text-white" type="submit">
+        <button className="rounded bg-tie-accent px-3 py-1 text-white" type="submit">
           {confirmLabel ?? t("create")}
         </button>
       </div>
@@ -307,12 +307,12 @@ function Modal({
 }) {
   const t = useT();
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/30">
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-tie-overlay">
       <form
         autoCapitalize="off"
         autoComplete="off"
         autoCorrect="off"
-        className="grid w-[380px] gap-2 rounded border border-slate-200 bg-white p-3 text-[11px] shadow-lg"
+        className="grid w-[380px] gap-2 rounded border border-tie-border bg-tie-card p-3 text-[11px] shadow-lg"
         spellCheck={false}
         onSubmit={(event) => {
           event.preventDefault();
@@ -320,8 +320,8 @@ function Modal({
         }}
       >
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-slate-800">{title}</span>
-          <button className="text-slate-500" onClick={onClose} type="button">
+          <span className="font-semibold text-tie-text">{title}</span>
+          <button className="text-tie-muted" onClick={onClose} type="button">
             {t("close")}
           </button>
         </div>
@@ -332,4 +332,4 @@ function Modal({
 }
 
 const fieldClass =
-  "w-full min-w-0 rounded border border-slate-300 bg-slate-50 px-2 py-1 font-mono text-[11px] outline-none focus:border-slate-600";
+  "w-full min-w-0 rounded border border-tie-border bg-tie-surface px-2 py-1 font-mono text-[11px] outline-none focus:border-tie-accent";

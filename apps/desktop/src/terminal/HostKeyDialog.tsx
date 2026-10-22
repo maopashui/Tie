@@ -19,24 +19,24 @@ export function HostKeyDialog({ prompt }: { prompt: HostKeyEvent }) {
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-900/40">
-      <div className="w-[440px] rounded border border-slate-200 bg-white p-3 text-[11px] shadow-lg">
-        <div className={`font-semibold ${mismatch ? "text-red-600" : "text-amber-700"}`}>
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-tie-overlay">
+      <div className="w-[440px] rounded border border-tie-border bg-tie-card p-3 text-[11px] shadow-lg">
+        <div className={`font-semibold ${mismatch ? "text-red-600" : "text-amber-700 dark:text-amber-400"}`}>
           {mismatch ? t("hostKeyMismatch") : t("hostKeyNew")}
         </div>
-        <p className="mt-2 text-slate-600">
+        <p className="mt-2 text-tie-muted">
           {prompt.host}:{prompt.port}
         </p>
-        <p className="mt-1 break-all font-mono text-slate-800">{prompt.fingerprint}</p>
-        <p className="mt-2 text-slate-500">{t("hostKeyHint")}</p>
+        <p className="mt-1 break-all font-mono text-tie-text">{prompt.fingerprint}</p>
+        <p className="mt-2 text-tie-muted">{t("hostKeyHint")}</p>
         <div className="mt-3 flex justify-end gap-2">
-          <button className="rounded border border-slate-300 px-2 py-1" onClick={() => void choose("reject")} type="button">
+          <button className="rounded border border-tie-border px-2 py-1" onClick={() => void choose("reject")} type="button">
             {t("reject")}
           </button>
-          <button className="rounded border border-slate-300 px-2 py-1" onClick={() => void choose("accept_once")} type="button">
+          <button className="rounded border border-tie-border px-2 py-1" onClick={() => void choose("accept_once")} type="button">
             {t("acceptOnce")}
           </button>
-          <button className="rounded bg-slate-900 px-2 py-1 text-white" onClick={() => void choose("accept_and_save")} type="button">
+          <button className="rounded bg-tie-accent px-2 py-1 text-white" onClick={() => void choose("accept_and_save")} type="button">
             {t("acceptAndSave")}
           </button>
         </div>

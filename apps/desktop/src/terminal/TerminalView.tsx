@@ -1,16 +1,36 @@
 import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type ITheme } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
 import { resizeTerminal, writeTerminal } from "../api/commands";
 import { useWorkspace } from "../stores/workspace";
+import { useTheme, type Theme } from "../theme";
 import { attachTerminal } from "./buffer";
 import { noteTerminalInput } from "./sessionLog";
 
 const mac = navigator.userAgent.includes("Mac");
 
+const themes: Record<Theme, ITheme> = {
+  light: {
+    background: "#ffffff",
+    foreground: "#1e293b",
+    cursor: "#0f172a",
+    selectionBackground: "#1e293b",
+    selectionForeground: "#ffffff",
+  },
+  dark: {
+    background: "#1f1f1f",
+    foreground: "#cccccc",
+    cursor: "#aeafad",
+    selectionBackground: "#264f78",
+    selectionForeground: "#ffffff",
+  },
+};
+
 export function TerminalView({ connectionId }: { connectionId: string }) {
   const host = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
   const setCursor = useWorkspace((state) => state.setCursor);
+  const theme = useTheme((state) => state.theme);
 
   useEffect(() => {
     const element = host.current;
@@ -20,14 +40,9 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
       fontSize: 12,
       lineHeight: 1.4,
       cursorBlink: true,
-      theme: {
-        background: "#ffffff",
-        foreground: "#1e293b",
-        cursor: "#0f172a",
-        selectionBackground: "#1e293b",
-        selectionForeground: "#ffffff",
-      },
+      theme: themes[useTheme.getState().theme],
     });
+    termRef.current = term;
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.attachCustomKeyEventHandler((event) => {
@@ -67,8 +82,16 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
       input.dispose();
       observer.disconnect();
       term.dispose();
+      termRef.current = null;
     };
   }, [connectionId, setCursor]);
 
-  return <div ref={host} className="h-full w-full bg-white p-2" />;
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.theme = themes[theme];
+    term.refresh(0, term.rows - 1);
+  }, [theme]);
+
+  return <div ref={host} className="h-full w-full bg-tie-bg p-2" />;
 }

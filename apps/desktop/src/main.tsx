@@ -5,6 +5,7 @@ import { App } from "./App";
 import type { ConnectionEvent, HostKeyEvent, TerminalDataEvent, TransferEvent } from "./api/types";
 import "./index.css";
 import { bootLocale } from "./i18n";
+import { bootTheme } from "./theme";
 import { useWorkspace } from "./stores/workspace";
 import { clearAuthFailure, isAuthFailure, noteAuthFailure } from "./terminal/authRetry";
 import { decodeBase64, pushTerminalData, releaseTerminal } from "./terminal/buffer";
@@ -14,6 +15,7 @@ import "@xterm/xterm/css/xterm.css";
 const root = document.getElementById("root");
 if (!root) throw new Error("root element missing");
 
+bootTheme();
 void bootLocale().finally(() => startApp(root));
 
 function startApp(container: HTMLElement) {
