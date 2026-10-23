@@ -26,6 +26,7 @@ pub struct LiveHandle {
     pub session_id: Uuid,
     pub shell_tx: mpsc::UnboundedSender<ShellCommand>,
     pub sftp_tx: mpsc::UnboundedSender<SftpCommand>,
+    pub forward_tx: mpsc::UnboundedSender<crate::port_forward::ForwardCommand>,
 }
 
 pub enum ShellCommand {
@@ -285,7 +286,9 @@ async fn connect_and_serve(
     let host = req.host.clone();
     let port = req.port;
     let username = req.username.clone();
-    let connect_fut = SshClient::connect(req, Some((prompt_tx, decision_rx)));
+    let (forwarded_tx, forwarded_rx) = mpsc::unbounded_channel();
+    let connect_fut =
+        SshClient::connect(req, Some((prompt_tx, decision_rx)), Some(forwarded_tx));
     tokio::pin!(connect_fut);
     let mut prompted = false;
     let client = loop {
@@ -337,14 +340,32 @@ async fn connect_and_serve(
     };
     let (shell_tx, mut shell_rx) = mpsc::unbounded_channel();
     let (sftp_tx, sftp_rx) = mpsc::unbounded_channel();
+    let (forward_tx, forward_rx) = mpsc::unbounded_channel();
     lock(&state.live)?.insert(
         connection_id,
         LiveHandle {
             session_id,
             shell_tx,
             sftp_tx,
+            forward_tx,
         },
     );
+
+    let forward_state = state.clone();
+    let forward_app = app.clone();
+    let forward_handle = client.handle();
+    let forward_task = tokio::spawn(async move {
+        crate::port_forward::forward_loop(
+            forward_app,
+            forward_state,
+            connection_id,
+            forward_handle,
+            forwarded_rx,
+            forward_rx,
+            locale,
+        )
+        .await;
+    });
     emit_status(
         &app,
         &ConnectionEvent {
@@ -436,6 +457,14 @@ async fn connect_and_serve(
     if let Ok(mut live) = lock(&state.live) {
         live.remove(&connection_id);
     }
+    // Dropping live forward_tx closes the forward loop command channel.
+    if tokio::time::timeout(Duration::from_secs(5), forward_task)
+        .await
+        .is_err()
+    {
+        tracing::warn!(%connection_id, "forward task did not stop within 5s after disconnect");
+    }
+    crate::port_forward::clear_connection_forwards(&app, &state, connection_id);
     if tokio::time::timeout(Duration::from_secs(5), sftp_task)
         .await
         .is_err()

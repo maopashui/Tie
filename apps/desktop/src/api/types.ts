@@ -93,3 +93,18 @@ export interface TransferEvent {
   status: "running" | "completed" | "failed" | "cancelled";
   error: string | null;
 }
+
+export type ForwardKind = "local" | "remote" | "dynamic";
+export type ForwardStatus = "starting" | "active" | "error" | "stopped";
+
+export interface PortForward {
+  id: string;
+  connection_id: string;
+  kind: ForwardKind;
+  bind_host: string;
+  bind_port: number;
+  dest_host: string | null;
+  dest_port: number | null;
+  status: ForwardStatus;
+  error: string | null;
+}

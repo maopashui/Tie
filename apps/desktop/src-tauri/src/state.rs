@@ -7,6 +7,7 @@ use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use crate::i18n::{text, Locale};
+use crate::port_forward::ForwardSnapshot;
 use crate::session::LiveHandle;
 
 pub struct TransferCtrl {
@@ -20,6 +21,8 @@ pub struct AppState {
     pub host_keys: Mutex<HashMap<Uuid, oneshot::Sender<tie_ssh::HostKeyDecision>>>,
     pub cancels: Mutex<HashMap<Uuid, oneshot::Sender<()>>>,
     pub transfers: Mutex<HashMap<Uuid, TransferCtrl>>,
+    /// Active port forwards keyed by forward id.
+    pub forwards: Mutex<HashMap<Uuid, ForwardSnapshot>>,
     /// Password or key passphrase accepted for a session during this run.
     pub secrets: Mutex<HashMap<Uuid, String>>,
     /// Sessions started from the quick-connect bar. Never written to the host list.
@@ -35,6 +38,7 @@ impl AppState {
             host_keys: Mutex::new(HashMap::new()),
             cancels: Mutex::new(HashMap::new()),
             transfers: Mutex::new(HashMap::new()),
+            forwards: Mutex::new(HashMap::new()),
             secrets: Mutex::new(HashMap::new()),
             ephemeral: Mutex::new(HashSet::new()),
             locale: Mutex::new(Locale::system()),

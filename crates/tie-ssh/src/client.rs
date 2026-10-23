@@ -1,17 +1,18 @@
 use std::sync::Arc;
 
-use russh::client::{self, Msg};
+use russh::client::{self, ChannelOpenHandle, Msg};
 use russh::keys::{load_secret_key, PublicKeyOrCertificate};
 use russh::{Channel, ChannelMsg, Disconnect, Preferred};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::auth::{AuthMethod, ConnectRequest};
 use crate::error::{Result, SshError};
+use crate::forward::IncomingForward;
 use crate::known_hosts::{HostKeyDecision, HostKeyStatus, KnownHosts};
 use crate::sftp::SftpClient;
 
 pub struct SshClient {
-    handle: client::Handle<ClientHandler>,
+    handle: Arc<client::Handle<ClientHandler>>,
     host: String,
     port: u16,
 }
@@ -20,12 +21,13 @@ pub struct SshShell {
     channel: Channel<Msg>,
 }
 
-struct ClientHandler {
+pub struct ClientHandler {
     host: String,
     port: u16,
     known_hosts_path: std::path::PathBuf,
     decision_tx: Option<oneshot::Sender<(HostKeyStatus, String)>>,
     decision_rx: Option<oneshot::Receiver<HostKeyDecision>>,
+    forwarded_tx: Option<mpsc::UnboundedSender<IncomingForward>>,
 }
 
 impl client::Handler for ClientHandler {
@@ -54,7 +56,6 @@ impl client::Handler for ClientHandler {
                 let decision = if let Some(rx) = self.decision_rx.take() {
                     rx.await.unwrap_or(HostKeyDecision::Reject)
                 } else {
-                    // No UI channel: reject unknown keys by default
                     HostKeyDecision::Reject
                 };
                 match decision {
@@ -68,16 +69,40 @@ impl client::Handler for ClientHandler {
             }
         }
     }
+
+    async fn server_channel_open_forwarded_tcpip(
+        &mut self,
+        channel: Channel<Msg>,
+        connected_address: &str,
+        connected_port: u32,
+        originator_address: &str,
+        originator_port: u32,
+        reply: ChannelOpenHandle,
+        _session: &mut client::Session,
+    ) -> std::result::Result<(), Self::Error> {
+        reply.accept().await;
+        if let Some(tx) = &self.forwarded_tx {
+            let _ = tx.send(IncomingForward {
+                channel,
+                connected_address: connected_address.to_string(),
+                connected_port,
+                originator_address: originator_address.to_string(),
+                originator_port,
+            });
+        }
+        Ok(())
+    }
 }
 
 impl SshClient {
-    /// Connect with optional host-key confirmation channel.
+    /// Connect with optional host-key confirmation and remote-forward inbox.
     pub async fn connect(
         req: ConnectRequest,
         host_key_prompt: Option<(
             oneshot::Sender<(HostKeyStatus, String)>,
             oneshot::Receiver<HostKeyDecision>,
         )>,
+        forwarded_tx: Option<mpsc::UnboundedSender<IncomingForward>>,
     ) -> Result<Self> {
         let (decision_tx, decision_rx) = match host_key_prompt {
             Some((tx, rx)) => (Some(tx), Some(rx)),
@@ -96,6 +121,7 @@ impl SshClient {
             known_hosts_path: req.known_hosts_path.clone(),
             decision_tx,
             decision_rx,
+            forwarded_tx,
         };
 
         let mut handle = client::connect(config, (req.host.as_str(), req.port), handler).await?;
@@ -126,7 +152,7 @@ impl SshClient {
         }
 
         Ok(Self {
-            handle,
+            handle: Arc::new(handle),
             host: req.host,
             port: req.port,
         })
@@ -140,6 +166,10 @@ impl SshClient {
         self.port
     }
 
+    pub fn handle(&self) -> Arc<client::Handle<ClientHandler>> {
+        Arc::clone(&self.handle)
+    }
+
     pub async fn open_shell(&self, cols: u32, rows: u32) -> Result<SshShell> {
         let channel = self.handle.channel_open_session().await?;
         channel
@@ -151,6 +181,20 @@ impl SshClient {
 
     pub async fn open_sftp(&self) -> Result<SftpClient> {
         SftpClient::from_session(&self.handle).await
+    }
+
+    pub async fn tcpip_forward(&self, address: &str, port: u16) -> Result<u32> {
+        Ok(self
+            .handle
+            .tcpip_forward(address, u32::from(port))
+            .await?)
+    }
+
+    pub async fn cancel_tcpip_forward(&self, address: &str, port: u16) -> Result<()> {
+        Ok(self
+            .handle
+            .cancel_tcpip_forward(address, u32::from(port))
+            .await?)
     }
 
     pub async fn disconnect(self) -> Result<()> {

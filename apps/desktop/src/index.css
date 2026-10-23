@@ -45,6 +45,9 @@ html,
 body,
 #root {
   height: 100%;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
 }
 
 body {
@@ -52,6 +55,21 @@ body {
   overflow: hidden;
   background: var(--tie-bg);
   color: var(--tie-text);
+}
+
+/* Keep text editable / copyable where interaction requires it.
+   xterm keeps user-select:none and draws its own selection — do not override. */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
+img,
+a {
+  -webkit-user-drag: none;
 }
 
 button:disabled {

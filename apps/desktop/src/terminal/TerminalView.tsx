@@ -5,6 +5,12 @@ import { resizeTerminal, writeTerminal } from "../api/commands";
 import { useWorkspace } from "../stores/workspace";
 import { useTheme, type Theme } from "../theme";
 import { attachTerminal } from "./buffer";
+import {
+  copyableSelection,
+  isBlankSelection,
+  selectAllContent,
+  shrinkSelectionToContent,
+} from "./selection";
 import { noteTerminalInput } from "./sessionLog";
 
 const mac = navigator.userAgent.includes("Mac");
@@ -45,11 +51,33 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
     termRef.current = term;
     const fit = new FitAddon();
     term.loadAddon(fit);
+    const writeCopy = (): boolean => {
+      if (!term.hasSelection()) return false;
+      shrinkSelectionToContent(term);
+      const text = copyableSelection(term);
+      if (!text) {
+        term.clearSelection();
+        return false;
+      }
+      void navigator.clipboard.writeText(text).catch(() => undefined);
+      return true;
+    };
+
     term.attachCustomKeyEventHandler((event) => {
       const primary = mac ? event.metaKey : event.ctrlKey;
       if (!primary || event.altKey || event.shiftKey) return true;
       const key = event.key.toLowerCase();
       if (key === "w" || (!mac && key === "q")) return false;
+      // Replace xterm selectAll (whole viewport incl. blank rows) with content-only.
+      if (key === "a") {
+        if (event.type === "keydown") selectAllContent(term);
+        return false;
+      }
+      // Cmd/Ctrl+C copies glyph-only text when there is a selection.
+      if (key === "c" && term.hasSelection()) {
+        if (event.type === "keydown") writeCopy();
+        return false;
+      }
       return true;
     });
     term.open(element);
@@ -70,6 +98,26 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
       });
       reportCursor();
     });
+    // Snap highlight to rows/cells with glyphs; copy only that text.
+    const onMouseUp = () => {
+      if (!term.hasSelection()) return;
+      shrinkSelectionToContent(term);
+      if (isBlankSelection(term)) term.clearSelection();
+    };
+    const onCopy = (event: ClipboardEvent) => {
+      if (!term.hasSelection()) return;
+      shrinkSelectionToContent(term);
+      const text = copyableSelection(term);
+      event.preventDefault();
+      event.stopPropagation();
+      if (!text) {
+        term.clearSelection();
+        return;
+      }
+      event.clipboardData?.setData("text/plain", text);
+    };
+    element.addEventListener("mouseup", onMouseUp);
+    element.addEventListener("copy", onCopy, true);
     const resize = () => {
       fit.fit();
       void resizeTerminal(connectionId, term.cols, term.rows).catch(() => undefined);
@@ -80,6 +128,8 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
     return () => {
       detach();
       input.dispose();
+      element.removeEventListener("mouseup", onMouseUp);
+      element.removeEventListener("copy", onCopy, true);
       observer.disconnect();
       term.dispose();
       termRef.current = null;

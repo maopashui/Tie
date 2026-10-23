@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   FileEntry,
   Folder,
+  ForwardKind,
+  PortForward,
   QuickConnect,
   Session,
   TransferRecord,
@@ -162,4 +164,25 @@ export function appendSessionLog(path: string, index: number, data: string) {
   return invoke<{ index: number; path: string }>("append_session_log", {
     args: { path, index, data },
   });
+}
+
+export function startPortForward(args: {
+  connection_id: string;
+  kind: ForwardKind;
+  bind_host: string;
+  bind_port: number;
+  dest_host?: string | null;
+  dest_port?: number | null;
+}) {
+  return invoke<string>("start_port_forward", { args });
+}
+
+export function stopPortForward(connectionId: string, forwardId: string) {
+  return invoke<void>("stop_port_forward", {
+    args: { connection_id: connectionId, forward_id: forwardId },
+  });
+}
+
+export function listPortForwards(connectionId: string) {
+  return invoke<PortForward[]>("list_port_forwards", { connectionId });
 }

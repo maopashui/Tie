@@ -3,6 +3,7 @@ mod error;
 mod i18n;
 mod local_term;
 mod parse;
+mod port_forward;
 mod session;
 mod state;
 
@@ -74,6 +75,9 @@ pub fn run() {
             commands::home_dir,
             commands::append_session_log,
             commands::set_locale,
+            commands::start_port_forward,
+            commands::stop_port_forward,
+            commands::list_port_forwards,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tie");

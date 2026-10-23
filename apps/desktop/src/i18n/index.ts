@@ -23,6 +23,7 @@ for (const key of [
   "localReadFailed",
   "localWriteFailed",
   "localNoSftp",
+  "localNoForward",
   "statusConnected",
   "statusDisconnected",
 ] as const) {

@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::i18n::text;
+use crate::port_forward::ForwardCommand;
 use crate::session::{flush_terminal, notify_connection, LiveHandle, SftpCommand, ShellCommand};
 use crate::state::{lock, SharedState};
 
@@ -68,12 +69,14 @@ pub fn spawn_local_connection(
 
     let (shell_tx, mut shell_rx) = mpsc::unbounded_channel();
     let (sftp_tx, mut sftp_rx) = mpsc::unbounded_channel();
+    let (forward_tx, mut forward_rx) = mpsc::unbounded_channel();
     lock(&state.live)?.insert(
         connection_id,
         LiveHandle {
             session_id,
             shell_tx,
             sftp_tx,
+            forward_tx,
         },
     );
 
@@ -99,6 +102,20 @@ pub fn spawn_local_connection(
                         let _ = reply.send(Err(message));
                     }
                     SftpCommand::Transfer(_) => {}
+                }
+            }
+        });
+        let reject_forward = tokio::spawn(async move {
+            while let Some(cmd) = forward_rx.recv().await {
+                let message = text(
+                    locale,
+                    "本地会话不支持端口转发",
+                    "Local sessions do not support port forwarding",
+                );
+                match cmd {
+                    ForwardCommand::Start { reply, .. } | ForwardCommand::Stop { reply, .. } => {
+                        let _ = reply.send(Err(message));
+                    }
                 }
             }
         });
@@ -185,6 +202,7 @@ pub fn spawn_local_connection(
             &username,
         );
         reject.abort();
+        reject_forward.abort();
     });
     Ok(())
 }

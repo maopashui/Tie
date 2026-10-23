@@ -2,8 +2,15 @@ import { listen } from "@tauri-apps/api/event";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import type { ConnectionEvent, HostKeyEvent, TerminalDataEvent, TransferEvent } from "./api/types";
+import type {
+  ConnectionEvent,
+  HostKeyEvent,
+  PortForward,
+  TerminalDataEvent,
+  TransferEvent,
+} from "./api/types";
 import "./index.css";
+import { usePortForwards } from "./forward/store";
 import { bootLocale } from "./i18n";
 import { bootTheme } from "./theme";
 import { useWorkspace } from "./stores/workspace";
@@ -44,6 +51,7 @@ function startApp(container: HTMLElement) {
     if (payload.state === "failed" || payload.state === "disconnected") {
       releaseTerminal(payload.connection_id);
       void stopSessionLog(payload.connection_id, "exit");
+      usePortForwards.getState().clearConnection(payload.connection_id);
     }
     if (payload.state === "disconnected" || (payload.state === "failed" && !isAuthFailure(payload.message))) {
       const state = useWorkspace.getState();
@@ -71,6 +79,10 @@ function startApp(container: HTMLElement) {
 
   void listen<TransferEvent>("transfer-progress", (event) => {
     useWorkspace.getState().upsertTransfer(event.payload);
+  });
+
+  void listen<PortForward>("forward-status", (event) => {
+    usePortForwards.getState().upsert(event.payload);
   });
 
   createRoot(container).render(

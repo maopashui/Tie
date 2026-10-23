@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  ArrowLeftRight,
   FolderInput,
   Plus,
   Power,
@@ -28,6 +29,8 @@ import type { Folder, Session } from "./api/types";
 import { ConnectDialog, NameDialog, SecretDialog } from "./sessions/ConnectDialog";
 import { SessionSidebar } from "./sessions/SessionSidebar";
 import { CommandsView } from "./commands/CommandsView";
+import { PortForwardDrawer } from "./forward/PortForwardDrawer";
+import { StatusBarForwards } from "./forward/StatusBarForwards";
 import { SettingsDialog } from "./settings/SettingsDialog";
 import { SftpView } from "./sftp/SftpView";
 import { findSession, useWorkspace, type WorkspaceTab } from "./stores/workspace";
@@ -96,9 +99,22 @@ export function App() {
   const [folderEdit, setFolderEdit] = useState<Folder | null>(null);
   const [logConnectionId, setLogConnectionId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
   const recording = useSessionLog();
   const active = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const activeSession = active ? findSession(active.sessionId) : undefined;
+  const sshConnected =
+    !!active &&
+    active.status === "connected" &&
+    (active.kind === "terminal" || active.kind === "sftp") &&
+    activeSession?.kind === "ssh";
   const prompted = authPrompt ? (findSession(authPrompt.sessionId) ?? null) : secretFor;
+
+  useEffect(() => {
+    if (forwardOpen && !sshConnected) {
+      setForwardOpen(false);
+    }
+  }, [forwardOpen, sshConnected]);
 
   async function reload() {
     const [nextFolders, nextSessions] = await listWorkspace();
@@ -324,8 +340,11 @@ export function App() {
   }
 
   function openSftp() {
-    const session = active ? findSession(active.sessionId) : undefined;
-    if (!active || active.status !== "connected" || session?.kind !== "ssh") {
+    if (!sshConnected || !active) {
+      if (activeSession?.kind === "local") {
+        setBanner(t("localNoSftp"));
+        return;
+      }
       setBanner(t("connectSshFirst"));
       return;
     }
@@ -446,7 +465,15 @@ export function App() {
         </div>
         <div className="flex items-center gap-1">
           <button
-            className="flex items-center gap-1 rounded border border-tie-border px-2 py-1"
+            className="flex items-center gap-1 rounded border border-tie-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!sshConnected}
+            title={
+              activeSession?.kind === "local"
+                ? t("localNoSftp")
+                : !sshConnected
+                  ? t("connectSshFirst")
+                  : t("sftpTransfer")
+            }
             onClick={openSftp}
             type="button"
           >
@@ -459,6 +486,31 @@ export function App() {
             type="button"
           >
             <SquareTerminal size={12} />
+          </button>
+          <button
+            className={`rounded border p-1.5 disabled:cursor-not-allowed disabled:opacity-40 ${forwardOpen ? "border-tie-accent bg-tie-accent/10 text-tie-accent" : "border-tie-border"}`}
+            disabled={!sshConnected}
+            title={
+              activeSession?.kind === "local"
+                ? t("localNoForward")
+                : !sshConnected
+                  ? t("connectSshFirst")
+                  : t("portForward")
+            }
+            onClick={() => {
+              if (!sshConnected) {
+                if (activeSession?.kind === "local") {
+                  setBanner(t("localNoForward"));
+                  return;
+                }
+                setBanner(t("connectSshFirst"));
+                return;
+              }
+              setForwardOpen(true);
+            }}
+            type="button"
+          >
+            <ArrowLeftRight size={12} />
           </button>
           <button
             className={`rounded border p-1.5 ${recording ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "border-tie-border"}`}
@@ -672,6 +724,14 @@ export function App() {
             }}
           />
         ) : null}
+        {forwardOpen && sshConnected && active ? (
+          <PortForwardDrawer
+            connectionId={active.connectionId}
+            open={forwardOpen}
+            onClose={() => setForwardOpen(false)}
+            onError={(message) => setBanner(message)}
+          />
+        ) : null}
       </main>
       <footer className="flex h-6 items-center justify-between border-t border-tie-border bg-tie-subtle px-3 font-mono text-[10px] text-tie-muted">
         <div className="flex items-center gap-3">
@@ -681,6 +741,13 @@ export function App() {
           </span>
           <span>{statusLabel(active?.status, t)}</span>
           <span title={t("latencyHint")}>{t("latency")}</span>
+          <StatusBarForwards
+            connectionId={
+              active && (active.kind === "terminal" || active.kind === "sftp") && active.connectionId
+                ? active.connectionId
+                : null
+            }
+          />
         </div>
         <div className="flex items-center gap-3">
           <span>{cursor}</span>
