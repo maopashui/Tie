@@ -15,6 +15,7 @@ import {
 } from "../api/commands";
 import type { FileEntry } from "../api/types";
 import { listSeparator, t as translate, useT } from "../i18n";
+import { NameDialog } from "../sessions/ConnectDialog";
 import { useWorkspace } from "../stores/workspace";
 
 export function SftpView({ connectionId }: { connectionId: string }) {
@@ -36,10 +37,13 @@ export function SftpView({ connectionId }: { connectionId: string }) {
   const [hideLocalDot, setHideLocalDot] = useState(true);
   const [hideRemoteDot, setHideRemoteDot] = useState(true);
   const [tab, setTab] = useState<"running" | "done" | "failed">("running");
+  const [namePrompt, setNamePrompt] = useState<"local" | "remote" | null>(null);
   const [replacePrompt, setReplacePrompt] = useState<{
     title: string;
     message: string;
     blocked: boolean;
+    confirmLabel?: string;
+    confirmDanger?: boolean;
     run: () => Promise<void>;
   } | null>(null);
   const finishedTransfers = useRef(new Set<string>());
@@ -91,32 +95,57 @@ export function SftpView({ connectionId }: { connectionId: string }) {
   }
 
   async function upload() {
-    const files = pickedFiles(localChecked, localEntries, localSelected);
-    if (!files.length) {
-      setBanner(localChecked.size ? t("pickFilesNotDirs") : t("pickLocalFile"));
+    const items = pickedEntries(localChecked, localEntries, localSelected);
+    if (!items.length) {
+      setBanner(t("pickLocalFile"));
       return;
     }
-    const blocked = files.filter((file) => remoteEntries.some((entry) => entry.name === file.name && entry.is_dir));
-    const ready = files.filter((file) => !blocked.includes(file));
+    // Folders: refuse if any remote entry with the same name already exists.
+    // Files: refuse only when the remote name is a directory.
+    const blockedDirs = items.filter(
+      (item) => item.is_dir && remoteEntries.some((entry) => entry.name === item.name),
+    );
+    const blockedFiles = items.filter(
+      (item) => !item.is_dir && remoteEntries.some((entry) => entry.name === item.name && entry.is_dir),
+    );
+    const blocked = [...blockedDirs, ...blockedFiles];
+    const ready = items.filter((item) => !blocked.includes(item));
     if (!ready.length) {
-      setBanner(t("remoteDirExists", { names: blocked.map((file) => file.name).join(listSeparator()) }));
+      if (blockedDirs.length) {
+        setBanner(t("remoteNameExists", { names: blockedDirs.map((item) => item.name).join(listSeparator()) }));
+      } else {
+        setBanner(t("remoteDirExists", { names: blockedFiles.map((item) => item.name).join(listSeparator()) }));
+      }
       return;
     }
     const start = async () => {
       setTab("running");
-      if (blocked.length) setBanner(t("skippedDirs", { names: blocked.map((file) => file.name).join(listSeparator()) }));
-      for (const file of ready) {
-        await startUpload(connectionId, file.path, joinRemote(remotePath, file.name));
+      if (blocked.length) {
+        setBanner(t("skippedConflicts", { names: blocked.map((item) => item.name).join(listSeparator()) }));
+      }
+      for (const item of ready) {
+        const remote = joinRemote(remotePath, item.name);
+        if (item.is_dir) {
+          const plan = await collectDirUpload(item.path, remote);
+          for (const step of plan) {
+            if (step.kind === "mkdir") await sftpMkdir(connectionId, step.remote);
+            else await startUpload(connectionId, step.local, step.remote);
+          }
+        } else {
+          await startUpload(connectionId, item.path, remote);
+        }
       }
     };
-    const duplicates = ready.filter((file) => remoteEntries.some((entry) => entry.name === file.name));
+    const duplicates = ready.filter(
+      (item) => !item.is_dir && remoteEntries.some((entry) => entry.name === item.name && !entry.is_dir),
+    );
     if (!duplicates.length) {
       await start();
       return;
     }
     setReplacePrompt({
       title: t("sameName"),
-      message: t("remoteExistsOverwrite", { names: duplicates.map((file) => file.name).join(listSeparator()) }),
+      message: t("remoteExistsOverwrite", { names: duplicates.map((item) => item.name).join(listSeparator()) }),
       blocked: false,
       run: start,
     });
@@ -170,7 +199,7 @@ export function SftpView({ connectionId }: { connectionId: string }) {
         const tag = target.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
       }
-      if (replacePrompt) return;
+      if (replacePrompt || namePrompt) return;
       event.preventDefault();
       const entries = (activePane === "remote" ? visibleRemote : visibleLocal).filter((entry) => entry.name !== "..");
       const paths = new Set(entries.map((entry) => entry.path));
@@ -179,13 +208,96 @@ export function SftpView({ connectionId }: { connectionId: string }) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activePane, replacePrompt, visibleLocal, visibleRemote]);
+  }, [activePane, namePrompt, replacePrompt, visibleLocal, visibleRemote]);
   const running = transfers.filter((item) => item.status === "running");
   const done = history.filter((item) => item.status === "completed");
   const failed = history.filter((item) => item.status === "failed" || item.status === "cancelled");
 
+  async function createFolder(side: "local" | "remote", rawName: string) {
+    const name = rawName.trim();
+    if (!name || name === "." || name === ".." || name.includes("/") || name.includes("\\") || name.includes("\0")) {
+      setBanner(t("invalidFolderName"));
+      return;
+    }
+    if (side === "local") {
+      if (!localPath) {
+        setBanner(t("localDirNotReady"));
+        return;
+      }
+      await makeLocalDir(`${localPath.replace(/\/$/, "")}/${name}`);
+      await refreshLocal();
+      return;
+    }
+    await sftpMkdir(connectionId, joinRemote(remotePath, name));
+    await refreshRemote();
+  }
+
+  function deleteTargets(checked: Set<string>, entries: FileEntry[], selected: FileEntry | null) {
+    const fromChecked = entries.filter((entry) => checked.has(entry.path) && entry.name !== "..");
+    if (fromChecked.length) return fromChecked;
+    if (selected && selected.name !== "..") return [selected];
+    return [];
+  }
+
+  async function dirHasContents(side: "local" | "remote", dir: FileEntry) {
+    const entries = side === "local" ? await listLocal(dir.path) : await sftpList(connectionId, dir.path);
+    return entries.some((entry) => entry.name !== "." && entry.name !== "..");
+  }
+
+  function showConfirmStep(
+    message: string,
+    next: () => void | Promise<void>,
+    options?: { confirmDanger?: boolean },
+  ) {
+    setReplacePrompt({
+      title: t("delete"),
+      message,
+      blocked: false,
+      confirmLabel: t("delete"),
+      confirmDanger: options?.confirmDanger,
+      run: async () => {
+        await next();
+      },
+    });
+  }
+
+  async function confirmDelete(
+    side: "local" | "remote",
+    targets: FileEntry[],
+    run: (items: FileEntry[]) => Promise<void>,
+  ) {
+    if (!targets.length) return;
+    const dirs = targets.filter((item) => item.is_dir);
+    let hasNonEmptyDir = false;
+    for (const dir of dirs) {
+      if (await dirHasContents(side, dir)) {
+        hasNonEmptyDir = true;
+        break;
+      }
+    }
+    // files / empty dirs → 1 confirm; any non-empty dir → 2 (extra red confirm)
+    const single = targets.length === 1;
+    const firstMessage = single
+      ? t(side === "local" ? "deleteLocalConfirm" : "deleteRemoteConfirm", { name: targets[0].name })
+      : t(side === "local" ? "deleteLocalConfirmMany" : "deleteRemoteConfirmMany", {
+          count: targets.length,
+        });
+
+    const finish = () => run(targets);
+    if (!hasNonEmptyDir) {
+      showConfirmStep(firstMessage, finish);
+      return;
+    }
+    showConfirmStep(firstMessage, () => {
+      showConfirmStep(t("deleteNonEmptyConfirm"), finish, { confirmDanger: true });
+    });
+  }
+
+  const localDeleteTargets = deleteTargets(localChecked, localEntries, localSelected);
+  const remoteDeleteTargets = deleteTargets(remoteChecked, remoteEntries, remoteSelected);
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-tie-card">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-tie-card">
       <div className="flex min-h-0 flex-1">
         <FileColumn
           label={t("local")}
@@ -207,18 +319,16 @@ export function SftpView({ connectionId }: { connectionId: string }) {
           onToggleDot={() => setHideLocalDot((value) => !value)}
           actionLabel={t("uploadToRemote")}
           onAction={() => void upload().catch(showError)}
-          onMkdir={async () => {
-            const name = window.prompt(t("newLocalFolder"));
-            if (!name) return;
-            await makeLocalDir(`${localPath.replace(/\/$/, "")}/${name}`);
-            await refreshLocal();
-          }}
+          onMkdir={() => setNamePrompt("local")}
           onDelete={
-            localSelected && localSelected.name !== ".."
-              ? async () => {
-                  if (!window.confirm(t("deleteLocalConfirm", { name: localSelected.name }))) return;
-                  await removeLocal(localSelected.path, localSelected.is_dir);
-                  await refreshLocal();
+            localDeleteTargets.length
+              ? () => {
+                  void confirmDelete("local", localDeleteTargets, async (items) => {
+                    for (const item of items) {
+                      await removeLocal(item.path, item.is_dir);
+                    }
+                    await refreshLocal();
+                  }).catch(showError);
                 }
               : undefined
           }
@@ -251,18 +361,16 @@ export function SftpView({ connectionId }: { connectionId: string }) {
           onToggleDot={() => setHideRemoteDot((value) => !value)}
           actionLabel={t("downloadSelected")}
           onAction={() => void download().catch(showError)}
-          onMkdir={async () => {
-            const name = window.prompt(t("newRemoteFolder"));
-            if (!name) return;
-            await sftpMkdir(connectionId, joinRemote(remotePath, name));
-            await refreshRemote();
-          }}
+          onMkdir={() => setNamePrompt("remote")}
           onDelete={
-            remoteSelected && remoteSelected.name !== ".."
-              ? async () => {
-                  if (!window.confirm(t("deleteRemoteConfirm", { name: remoteSelected.name }))) return;
-                  await sftpRemove(connectionId, remoteSelected.path, remoteSelected.is_dir);
-                  await refreshRemote();
+            remoteDeleteTargets.length
+              ? () => {
+                  void confirmDelete("remote", remoteDeleteTargets, async (items) => {
+                    for (const item of items) {
+                      await sftpRemove(connectionId, item.path, item.is_dir);
+                    }
+                    await refreshRemote();
+                  }).catch(showError);
                 }
               : undefined
           }
@@ -325,6 +433,17 @@ export function SftpView({ connectionId }: { connectionId: string }) {
           onChange={(event) => setFilter(event.target.value)}
         />
       </div>
+      {namePrompt ? (
+        <NameDialog
+          title={namePrompt === "local" ? t("newLocalFolder") : t("newRemoteFolder")}
+          onClose={() => setNamePrompt(null)}
+          onSubmit={(name) => {
+            const side = namePrompt;
+            setNamePrompt(null);
+            void createFolder(side, name).catch(showError);
+          }}
+        />
+      ) : null}
       {replacePrompt ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-tie-overlay">
           <div className="w-[360px] rounded border border-tie-border bg-tie-card p-3 shadow-lg">
@@ -336,7 +455,11 @@ export function SftpView({ connectionId }: { connectionId: string }) {
               </button>
               {replacePrompt.blocked ? null : (
                 <button
-                  className="rounded bg-tie-accent px-3 py-1 text-white"
+                  className={
+                    replacePrompt.confirmDanger
+                      ? "rounded border border-red-600 bg-tie-card px-3 py-1 font-semibold text-red-600"
+                      : "rounded bg-tie-accent px-3 py-1 text-white"
+                  }
                   onClick={() => {
                     const run = replacePrompt.run;
                     setReplacePrompt(null);
@@ -344,7 +467,7 @@ export function SftpView({ connectionId }: { connectionId: string }) {
                   }}
                   type="button"
                 >
-                  {t("overwrite")}
+                  {replacePrompt.confirmLabel ?? t("overwrite")}
                 </button>
               )}
             </div>
@@ -394,8 +517,8 @@ function FileColumn({
   onToggleDot: () => void;
   actionLabel: string;
   onAction: () => void;
-  onMkdir: () => Promise<void>;
-  onDelete?: () => Promise<void>;
+  onMkdir: () => void;
+  onDelete?: () => void;
   remote?: boolean;
 }) {
   const t = useT();
@@ -430,11 +553,11 @@ function FileColumn({
         <button className="rounded bg-tie-accent px-2 py-0.5 text-white" onClick={onAction} type="button">
           {actionLabel}
         </button>
-        <button onClick={() => void onMkdir()} type="button">
+        <button onClick={onMkdir} type="button">
           {t("newFolderBtn")}
         </button>
         {onDelete ? (
-          <button className="text-red-600" onClick={() => void onDelete()} type="button">
+          <button className="text-red-600" onClick={onDelete} type="button">
             {t("delete")}
           </button>
         ) : null}
@@ -523,12 +646,35 @@ function toggleChecked(setChecked: (update: (current: Set<string>) => Set<string
   });
 }
 
-function pickedFiles(checked: Set<string>, entries: FileEntry[], fallback: FileEntry | null) {
+function pickedEntries(checked: Set<string>, entries: FileEntry[], fallback: FileEntry | null) {
   if (checked.size > 0) {
-    return entries.filter((entry) => checked.has(entry.path) && !entry.is_dir && entry.name !== "..");
+    return entries.filter((entry) => checked.has(entry.path) && entry.name !== "..");
   }
-  if (fallback && !fallback.is_dir && fallback.name !== "..") return [fallback];
+  if (fallback && fallback.name !== "..") return [fallback];
   return [];
+}
+
+function pickedFiles(checked: Set<string>, entries: FileEntry[], fallback: FileEntry | null) {
+  return pickedEntries(checked, entries, fallback).filter((entry) => !entry.is_dir);
+}
+
+type UploadStep =
+  | { kind: "mkdir"; remote: string }
+  | { kind: "file"; local: string; remote: string };
+
+async function collectDirUpload(localDir: string, remoteDir: string): Promise<UploadStep[]> {
+  const steps: UploadStep[] = [{ kind: "mkdir", remote: remoteDir }];
+  const entries = await listLocal(localDir);
+  for (const entry of entries) {
+    if (entry.name === "." || entry.name === "..") continue;
+    const remoteChild = joinRemote(remoteDir, entry.name);
+    if (entry.is_dir) {
+      steps.push(...(await collectDirUpload(entry.path, remoteChild)));
+    } else {
+      steps.push({ kind: "file", local: entry.path, remote: remoteChild });
+    }
+  }
+  return steps;
 }
 
 function hasDotEntries(entries: FileEntry[]) {

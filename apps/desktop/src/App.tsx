@@ -614,9 +614,19 @@ export function App() {
             {active?.kind === "terminal" && active.status === "connected" ? (
               <TerminalView connectionId={active.connectionId} />
             ) : null}
-            {active?.kind === "sftp" && active.status === "connected" ? (
-              <SftpView connectionId={active.connectionId} />
-            ) : null}
+            {tabs.map((tab) => {
+              if (tab.kind !== "sftp" || tab.status !== "connected") return null;
+              const show = active?.id === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  className={show ? "flex min-h-0 flex-1 flex-col" : "hidden"}
+                  hidden={!show}
+                >
+                  <SftpView connectionId={tab.connectionId} />
+                </div>
+              );
+            })}
             {active?.kind === "commands" ? <CommandsView /> : null}
             {active && active.status !== "connected" ? (
               <div className="p-4 font-mono text-tie-muted">

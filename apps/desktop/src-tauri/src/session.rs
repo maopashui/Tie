@@ -290,12 +290,26 @@ async fn connect_and_serve(
     let connect_fut =
         SshClient::connect(req, Some((prompt_tx, decision_rx)), Some(forwarded_tx));
     tokio::pin!(connect_fut);
+    // Overall budget for handshake + auth. Paused while the user confirms a host key.
+    let connect_deadline = tokio::time::sleep(Duration::from_secs(30));
+    tokio::pin!(connect_deadline);
     let mut prompted = false;
+    let mut awaiting_host_key = false;
     let client = loop {
         tokio::select! {
-            result = &mut connect_fut => break result?,
+            result = &mut connect_fut => {
+                break result.map_err(|err| match err {
+                    SshError::Timeout => AppError::Message(text(
+                        locale,
+                        "连接超时，请检查主机地址与网络",
+                        "Connection timed out. Check the host and network.",
+                    )),
+                    other => AppError::from(other),
+                })?;
+            }
             prompt = &mut prompt_rx, if !prompted => {
                 prompted = true;
+                awaiting_host_key = true;
                 if let Ok((status, fingerprint)) = prompt {
                     emit(
                         &app,
@@ -314,6 +328,13 @@ async fn connect_and_serve(
                         },
                     );
                 }
+            }
+            _ = &mut connect_deadline, if !awaiting_host_key => {
+                return Err(AppError::Message(text(
+                    locale,
+                    "连接超时，请检查主机地址与网络",
+                    "Connection timed out. Check the host and network.",
+                )));
             }
             _ = &mut cancel_rx => {
                 return Err(AppError::Message(text(locale, "连接已取消", "Connection cancelled")));
@@ -530,7 +551,7 @@ async fn sftp_loop(
                 reply,
             } => {
                 let result = if is_dir {
-                    sftp.remove_dir(&path).await
+                    sftp.remove_dir_recursive(&path).await
                 } else {
                     sftp.remove_file(&path).await
                 }

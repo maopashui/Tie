@@ -117,7 +117,7 @@ pub fn remove_local(state: State<SharedState>, args: RemoveLocalArgs) -> Result<
     let path = expand_path(&args.path);
     validate_local(&path, locale)?;
     if args.is_dir {
-        fs::remove_dir(&path).map_err(|e| {
+        fs::remove_dir_all(&path).map_err(|e| {
             io_message(locale, "删除目录失败", "Could not delete the directory", &e)
         })?;
     } else {
