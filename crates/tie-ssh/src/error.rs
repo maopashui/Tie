@@ -16,6 +16,8 @@ pub enum SshError {
     Sftp(String),
     #[error("key error: {0}")]
     Key(String),
+    #[error("connection timed out")]
+    Timeout,
     #[error("{0}")]
     Other(String),
 }

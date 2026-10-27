@@ -107,6 +107,19 @@ impl SftpClient {
             .map_err(|e| SshError::Sftp(e.to_string()))
     }
 
+    /// Delete a directory and all of its contents.
+    pub async fn remove_dir_recursive(&self, path: &str) -> Result<()> {
+        let entries = self.read_dir(path).await?;
+        for entry in entries {
+            if entry.is_dir {
+                Box::pin(self.remove_dir_recursive(&entry.path)).await?;
+            } else {
+                self.remove_file(&entry.path).await?;
+            }
+        }
+        self.remove_dir(path).await
+    }
+
     pub async fn upload(
         &self,
         local: &Path,

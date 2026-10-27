@@ -1,9 +1,14 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use russh::client::{self, ChannelOpenHandle, Msg};
 use russh::keys::{load_secret_key, PublicKeyOrCertificate};
 use russh::{Channel, ChannelMsg, Disconnect, Preferred};
+use tokio::net::TcpStream;
 use tokio::sync::{mpsc, oneshot};
+
+/// How long to wait for the TCP handshake before giving up.
+const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
 use crate::auth::{AuthMethod, ConnectRequest};
 use crate::error::{Result, SshError};
@@ -124,7 +129,17 @@ impl SshClient {
             forwarded_tx,
         };
 
-        let mut handle = client::connect(config, (req.host.as_str(), req.port), handler).await?;
+        let socket = match tokio::time::timeout(
+            TCP_CONNECT_TIMEOUT,
+            TcpStream::connect((req.host.as_str(), req.port)),
+        )
+        .await
+        {
+            Ok(Ok(socket)) => socket,
+            Ok(Err(err)) => return Err(SshError::Io(err)),
+            Err(_) => return Err(SshError::Timeout),
+        };
+        let mut handle = client::connect_stream(config, socket, handler).await?;
 
         match &req.auth {
             AuthMethod::Password(password) => {
