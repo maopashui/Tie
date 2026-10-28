@@ -67,7 +67,7 @@ Xcode command-line tools must be installed.
 
 Artifacts:
 
-- `src-tauri/target/release/bundle/dmg/Tie_0.1.2_<arch>.dmg`
+- `src-tauri/target/release/bundle/dmg/Tie_0.1.3_<arch>.dmg`
 - `src-tauri/target/release/bundle/macos/Tie.app`
 
 Open the dmg, drag `Tie.app` into Applications, then launch it from Launchpad or the Applications folder.
@@ -78,7 +78,7 @@ Install the Visual Studio "Desktop development with C++" workload, and the WebVi
 
 Artifacts:
 
-- `src-tauri/target/release/bundle/nsis/Tie_0.1.2_x64-setup.exe`
+- `src-tauri/target/release/bundle/nsis/Tie_0.1.3_x64-setup.exe`
 - an `.msi` under `src-tauri/target/release/bundle/msi/`
 
 Run the installer, then open Tie from the Start menu.
@@ -95,9 +95,9 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
 
 Artifacts are under `src-tauri/target/release/bundle/`:
 
-- `deb/tie_0.1.2_<arch>.deb`: `sudo apt install ./tie_0.1.2_<arch>.deb`, then open Tie from the application menu
+- `deb/tie_0.1.3_<arch>.deb`: `sudo apt install ./tie_0.1.3_<arch>.deb`, then open Tie from the application menu
 - `rpm/`: install with the system rpm installer, then open it from the application menu
-- `appimage/tie_0.1.2_<arch>.AppImage`: mark it executable and double-click, or open it from the file manager
+- `appimage/tie_0.1.3_<arch>.AppImage`: mark it executable and double-click, or open it from the file manager
 
 The packages register a graphical desktop entry and do not open a terminal window.
 
