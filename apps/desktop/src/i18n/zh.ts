@@ -3,6 +3,7 @@ export const zh = {
   notConnected: "未连接",
   newSession: "新建会话",
   reconnect: "重新连接",
+  reconnectHint: "已断开，请点击工具栏重新连接",
   disconnect: "断开连接",
   quickConnect: "临时连接",
   quickConnectHint: "临时连接，不会保存到主机列表",

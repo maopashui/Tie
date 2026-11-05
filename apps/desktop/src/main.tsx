@@ -15,7 +15,7 @@ import { bootLocale } from "./i18n";
 import { bootTheme } from "./theme";
 import { useWorkspace } from "./stores/workspace";
 import { clearAuthFailure, isAuthFailure, noteAuthFailure } from "./terminal/authRetry";
-import { decodeBase64, pushTerminalData, releaseTerminal } from "./terminal/buffer";
+import { decodeBase64, pushTerminalData } from "./terminal/buffer";
 import { stopSessionLog } from "./terminal/sessionLog";
 import "@xterm/xterm/css/xterm.css";
 
@@ -49,7 +49,6 @@ function startApp(container: HTMLElement) {
       }
     }
     if (payload.state === "failed" || payload.state === "disconnected") {
-      releaseTerminal(payload.connection_id);
       void stopSessionLog(payload.connection_id, "exit");
       usePortForwards.getState().clearConnection(payload.connection_id);
     }

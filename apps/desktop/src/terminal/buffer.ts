@@ -2,27 +2,41 @@ import { ingestSessionLog } from "./sessionLog";
 
 const listeners = new Map<string, (chunk: Uint8Array) => void>();
 const history = new Map<string, Uint8Array[]>();
+const connectionToTab = new Map<string, string>();
+const tabToConnection = new Map<string, string>();
+
+export function bindConnection(tabId: string, connectionId: string) {
+  const prev = tabToConnection.get(tabId);
+  if (prev && prev !== connectionId) connectionToTab.delete(prev);
+  connectionToTab.set(connectionId, tabId);
+  tabToConnection.set(tabId, connectionId);
+}
 
 export function pushTerminalData(connectionId: string, chunk: Uint8Array) {
-  const log = history.get(connectionId) ?? [];
+  const tabId = connectionToTab.get(connectionId);
+  if (!tabId) return;
+  const log = history.get(tabId) ?? [];
   log.push(chunk);
-  history.set(connectionId, log);
-  listeners.get(connectionId)?.(chunk);
+  history.set(tabId, log);
+  listeners.get(tabId)?.(chunk);
   ingestSessionLog(connectionId, chunk);
 }
 
-export function attachTerminal(connectionId: string, listener: (chunk: Uint8Array) => void) {
-  const log = history.get(connectionId) ?? [];
+export function attachTerminal(tabId: string, listener: (chunk: Uint8Array) => void) {
+  const log = history.get(tabId) ?? [];
   for (const chunk of log) listener(chunk);
-  listeners.set(connectionId, listener);
+  listeners.set(tabId, listener);
   return () => {
-    if (listeners.get(connectionId) === listener) listeners.delete(connectionId);
+    if (listeners.get(tabId) === listener) listeners.delete(tabId);
   };
 }
 
-export function releaseTerminal(connectionId: string) {
-  listeners.delete(connectionId);
-  history.delete(connectionId);
+export function releaseTerminal(tabId: string) {
+  listeners.delete(tabId);
+  history.delete(tabId);
+  const connectionId = tabToConnection.get(tabId);
+  tabToConnection.delete(tabId);
+  if (connectionId) connectionToTab.delete(connectionId);
 }
 
 export function decodeBase64(value: string) {

@@ -5,6 +5,7 @@ export const en: Record<MessageKey, string> = {
   notConnected: "Not connected",
   newSession: "New session",
   reconnect: "Reconnect",
+  reconnectHint: "Disconnected. Click Reconnect in the toolbar.",
   disconnect: "Disconnect",
   quickConnect: "Quick connect",
   quickConnectHint: "Temporary connection. It is not saved to the host list.",

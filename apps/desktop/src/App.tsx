@@ -35,6 +35,7 @@ import { SettingsDialog } from "./settings/SettingsDialog";
 import { SftpView } from "./sftp/SftpView";
 import { findSession, useWorkspace, type WorkspaceTab } from "./stores/workspace";
 import { hasAuthFailure, resetAuthFailure } from "./terminal/authRetry";
+import { bindConnection, releaseTerminal } from "./terminal/buffer";
 import { HostKeyDialog } from "./terminal/HostKeyDialog";
 import { LogPathDialog } from "./terminal/LogPathDialog";
 import { startSessionLog, stopSessionLog, useSessionLog } from "./terminal/sessionLog";
@@ -45,8 +46,24 @@ const lockedLocalSubtypes = mac ? ["powershell", "wsl"] : [];
 let startupLocalStarted = false;
 let lastCloseTabAt = 0;
 
+function localTerminalTabs(tabs: WorkspaceTab[]) {
+  return tabs.filter(
+    (tab) => tab.kind === "terminal" && findSession(tab.sessionId)?.kind === "local",
+  );
+}
+
+function isLastLocalTerminal(tab: WorkspaceTab) {
+  if (tab.kind !== "terminal") return false;
+  if (findSession(tab.sessionId)?.kind !== "local") return false;
+  return localTerminalTabs(useWorkspace.getState().tabs).length <= 1;
+}
+
 function dismissTab(tab: WorkspaceTab) {
-  if (tab.kind === "terminal") void stopSessionLog(tab.connectionId, "exit");
+  if (isLastLocalTerminal(tab)) return;
+  if (tab.kind === "terminal") {
+    void stopSessionLog(tab.connectionId, "exit");
+    releaseTerminal(tab.id);
+  }
   const connectionId = useWorkspace.getState().closeTab(tab.id);
   if (connectionId && tab.status !== "disconnected") void disconnect(connectionId);
   const state = useWorkspace.getState();
@@ -159,6 +176,18 @@ export function App() {
       setBanner(t("loginInProgress"));
       return;
     }
+    const reuseId =
+      reuseTabId && useWorkspace.getState().tabs.some((tab) => tab.id === reuseTabId) ? reuseTabId : null;
+    if (reuseId) {
+      const existing = useWorkspace.getState().tabs.find((tab) => tab.id === reuseId);
+      if (existing?.connectionId && existing.status !== "disconnected") {
+        try {
+          await disconnect(existing.connectionId);
+        } catch {
+          // Old connection may already be gone; continue with reconnect.
+        }
+      }
+    }
     if (session.kind === "local") {
       if (lockedLocalSubtypes.includes(session.local_subtype ?? "")) {
         setBanner(t("macosLocalOnly"));
@@ -174,11 +203,14 @@ export function App() {
           port: 0,
           username: "",
         };
-        if (reuseTabId && useWorkspace.getState().tabs.some((tab) => tab.id === reuseTabId)) {
-          attachConnection(reuseTabId, connectionId, patch);
+        if (reuseId) {
+          bindConnection(reuseId, connectionId);
+          attachConnection(reuseId, connectionId, patch);
         } else {
+          const tabId = crypto.randomUUID();
+          bindConnection(tabId, connectionId);
           openTab({
-            id: crypto.randomUUID(),
+            id: tabId,
             connectionId,
             sessionId: session.id,
             kind: "terminal",
@@ -194,9 +226,15 @@ export function App() {
       setBanner(t("localNotReady"));
       return;
     }
-    const signedIn = tabs.some((tab) => tab.sessionId === session.id && tab.status === "connected");
+    const signedIn = useWorkspace
+      .getState()
+      .tabs.some((tab) => tab.sessionId === session.id && tab.status === "connected");
     if (session.auth_type === "password" && !session.save_password && !secret && !signedIn) {
-      setSecretFor(session);
+      if (reuseId) {
+        setAuthPrompt({ sessionId: session.id, tabId: reuseId, hint: null, nonce: Date.now() });
+      } else {
+        setSecretFor(session);
+      }
       return;
     }
     try {
@@ -222,17 +260,19 @@ export function App() {
         port: session.port ?? 22,
         username: session.username ?? "",
       };
-      if (reuseTabId && useWorkspace.getState().tabs.some((tab) => tab.id === reuseTabId)) {
-        attachConnection(reuseTabId, connectionId, patch);
+      if (reuseId) {
+        bindConnection(reuseId, connectionId);
+        attachConnection(reuseId, connectionId, patch);
       } else {
-        const tab: WorkspaceTab = {
-          id: crypto.randomUUID(),
+        const tabId = crypto.randomUUID();
+        bindConnection(tabId, connectionId);
+        openTab({
+          id: tabId,
           connectionId,
           sessionId: session.id,
           kind: "terminal",
           ...patch,
-        };
-        openTab(tab);
+        });
       }
       setConnectOpen(false);
       setSecretFor(null);
@@ -240,8 +280,10 @@ export function App() {
       if (ephemeral) setQuick("");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (needsPassword(message)) setSecretFor(session);
-      else setBanner(message);
+      if (needsPassword(message)) {
+        if (reuseId) setAuthPrompt({ sessionId: session.id, tabId: reuseId, hint: null, nonce: Date.now() });
+        else setSecretFor(session);
+      } else setBanner(message);
     }
   }
 
@@ -395,7 +437,7 @@ export function App() {
             onClick={() => {
               if (!active || active.kind === "commands") return;
               const session = findSession(active.sessionId);
-              if (session) void begin(session, null);
+              if (session) void begin(session, null, active.id);
               else setBanner(t("unsavedConnection"));
             }}
             type="button"
@@ -565,7 +607,9 @@ export function App() {
         />
         <section className="flex min-w-0 flex-1 flex-col bg-tie-card">
           <nav className="flex h-8 items-end gap-1 border-b border-tie-border bg-tie-subtle px-1">
-            {tabs.map((tab) => (
+            {tabs.map((tab) => {
+              const canClose = !isLastLocalTerminal(tab);
+              return (
               <button
                 key={tab.id}
                 className={`mb-0 flex h-7 items-center gap-2 rounded-t border px-3 font-mono ${
@@ -583,17 +627,20 @@ export function App() {
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${tab.status === "connected" ? "bg-emerald-500" : "bg-tie-hover"}`} />
                 {tab.kind === "commands" ? t("commands") : tab.title}
-                <span
-                  className="text-tie-muted"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    dismissTab(tab);
-                  }}
-                >
-                  ×
-                </span>
+                {canClose ? (
+                  <span
+                    className="text-tie-muted"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      dismissTab(tab);
+                    }}
+                  >
+                    ×
+                  </span>
+                ) : null}
               </button>
-            ))}
+              );
+            })}
           </nav>
           {tabMenu ? (
             <div
@@ -611,9 +658,32 @@ export function App() {
             </div>
           ) : null}
           <div className="flex min-h-0 flex-1 flex-col">
-            {active?.kind === "terminal" && active.status === "connected" ? (
-              <TerminalView connectionId={active.connectionId} />
-            ) : null}
+            {tabs.map((tab) => {
+              if (tab.kind !== "terminal") return null;
+              const show = active?.id === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  className={show ? "flex min-h-0 flex-1 flex-col" : "hidden"}
+                  hidden={!show}
+                >
+                  {tab.status !== "connected" ? (
+                    <div className="shrink-0 border-b border-tie-border px-3 py-1.5 font-mono text-[11px] text-tie-muted">
+                      {tab.status === "connecting"
+                        ? `${tab.title}: ${displayMessage(tab.message)}`
+                        : t("reconnectHint")}
+                    </div>
+                  ) : null}
+                  <div className="min-h-0 flex-1">
+                    <TerminalView
+                      tabId={tab.id}
+                      connectionId={tab.connectionId}
+                      writable={tab.status === "connected"}
+                    />
+                  </div>
+                </div>
+              );
+            })}
             {tabs.map((tab) => {
               if (tab.kind !== "sftp" || tab.status !== "connected") return null;
               const show = active?.id === tab.id;
@@ -628,7 +698,7 @@ export function App() {
               );
             })}
             {active?.kind === "commands" ? <CommandsView /> : null}
-            {active && active.status !== "connected" ? (
+            {active && active.kind !== "terminal" && active.status !== "connected" ? (
               <div className="p-4 font-mono text-tie-muted">
                 {active.title}: {displayMessage(active.message)}
               </div>

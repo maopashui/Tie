@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { resizeTerminal, writeTerminal } from "../api/commands";
 import { useWorkspace } from "../stores/workspace";
 import { useTheme, type Theme } from "../theme";
-import { attachTerminal } from "./buffer";
+import { attachTerminal, bindConnection } from "./buffer";
 import {
   copyableSelection,
   isBlankSelection,
@@ -32,11 +32,23 @@ const themes: Record<Theme, ITheme> = {
   },
 };
 
-export function TerminalView({ connectionId }: { connectionId: string }) {
+export function TerminalView({
+  tabId,
+  connectionId,
+  writable,
+}: {
+  tabId: string;
+  connectionId: string;
+  writable: boolean;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
+  const connectionRef = useRef(connectionId);
+  const writableRef = useRef(writable);
   const setCursor = useWorkspace((state) => state.setCursor);
   const theme = useTheme((state) => state.theme);
+  connectionRef.current = connectionId;
+  writableRef.current = writable;
 
   useEffect(() => {
     const element = host.current;
@@ -86,14 +98,16 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
       const buffer = term.buffer.active;
       setCursor(`Ln ${buffer.cursorY + 1}, Col ${buffer.cursorX + 1}`);
     };
-    const detach = attachTerminal(connectionId, (chunk) => {
+    const detach = attachTerminal(tabId, (chunk) => {
       term.write(chunk);
       reportCursor();
     });
     const input = term.onData((data) => {
-      noteTerminalInput(connectionId, data);
+      if (!writableRef.current) return;
+      const activeConnectionId = connectionRef.current;
+      noteTerminalInput(activeConnectionId, data);
       const bytes = Array.from(new TextEncoder().encode(data));
-      void writeTerminal(connectionId, bytes).catch((error: unknown) => {
+      void writeTerminal(activeConnectionId, bytes).catch((error: unknown) => {
         useWorkspace.getState().setBanner(error instanceof Error ? error.message : String(error));
       });
       reportCursor();
@@ -120,7 +134,9 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
     element.addEventListener("copy", onCopy, true);
     const resize = () => {
       fit.fit();
-      void resizeTerminal(connectionId, term.cols, term.rows).catch(() => undefined);
+      const activeConnectionId = connectionRef.current;
+      if (!writableRef.current || !activeConnectionId) return;
+      void resizeTerminal(activeConnectionId, term.cols, term.rows).catch(() => undefined);
     };
     resize();
     const observer = new ResizeObserver(resize);
@@ -134,7 +150,14 @@ export function TerminalView({ connectionId }: { connectionId: string }) {
       term.dispose();
       termRef.current = null;
     };
-  }, [connectionId, setCursor]);
+  }, [tabId, setCursor]);
+
+  useEffect(() => {
+    bindConnection(tabId, connectionId);
+    const term = termRef.current;
+    if (!term || !writable) return;
+    void resizeTerminal(connectionId, term.cols, term.rows).catch(() => undefined);
+  }, [tabId, connectionId, writable]);
 
   useEffect(() => {
     const term = termRef.current;
