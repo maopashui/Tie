@@ -36,10 +36,12 @@ export function TerminalView({
   tabId,
   connectionId,
   writable,
+  active,
 }: {
   tabId: string;
   connectionId: string;
   writable: boolean;
+  active: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -158,6 +160,15 @@ export function TerminalView({
     if (!term || !writable) return;
     void resizeTerminal(connectionId, term.cols, term.rows).catch(() => undefined);
   }, [tabId, connectionId, writable]);
+
+  useEffect(() => {
+    if (!active || !writable) return;
+    const term = termRef.current;
+    if (!term) return;
+    // Wait a frame so password/connect dialogs finish unmounting first.
+    const frame = requestAnimationFrame(() => term.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [active, writable, connectionId]);
 
   useEffect(() => {
     const term = termRef.current;

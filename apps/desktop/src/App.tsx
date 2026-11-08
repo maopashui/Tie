@@ -679,6 +679,7 @@ export function App() {
                       tabId={tab.id}
                       connectionId={tab.connectionId}
                       writable={tab.status === "connected"}
+                      active={show}
                     />
                   </div>
                 </div>
